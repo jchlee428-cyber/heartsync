@@ -1,0 +1,50 @@
+{
+    "title": "user_plans",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "plan_type": {
+            "type": "string",
+            "description": "Active plan type: free, single_analysis, monthly_subscription, couple_premium"
+        },
+        "analyses_remaining": {
+            "type": "integer",
+            "description": "Number of analyses remaining for single plan"
+        },
+        "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Plan expiration date"
+        },
+        "is_active": {
+            "type": "boolean",
+            "description": "Whether the plan is currently active"
+        },
+        "order_id": {
+            "type": "integer",
+            "description": "Associated order ID"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Plan creation timestamp"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last update timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "plan_type"
+    ]
+}

@@ -1,0 +1,44 @@
+{
+    "title": "chat_sessions",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "title": {
+            "type": "string",
+            "description": "Chat session title, auto-generated from first message"
+        },
+        "diagnosis_id": {
+            "type": "integer",
+            "description": "Related diagnosis ID, nullable"
+        },
+        "message_count": {
+            "type": "integer",
+            "description": "Total number of messages in this session"
+        },
+        "last_message_preview": {
+            "type": "string",
+            "description": "Preview of the last message content"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Session creation timestamp"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last activity timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id"
+    ]
+}

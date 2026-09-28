@@ -1,0 +1,42 @@
+{
+    "title": "chat_ratings",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "session_id": {
+            "type": "integer",
+            "description": "Chat session ID"
+        },
+        "rating": {
+            "type": "integer",
+            "description": "Satisfaction rating 1-5 stars"
+        },
+        "feedback_tags": {
+            "type": "string",
+            "description": "Comma-separated feedback tags like helpful,empathetic,practical"
+        },
+        "comment": {
+            "type": "string",
+            "description": "Optional text feedback from user"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Rating creation timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "session_id",
+        "rating",
+        "created_at"
+    ]
+}

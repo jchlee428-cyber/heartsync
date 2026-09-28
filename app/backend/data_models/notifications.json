@@ -1,0 +1,59 @@
+{
+    "title": "notifications",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "type": {
+            "type": "string",
+            "description": "Notification type: report_ready, weekly_checkpoint, system"
+        },
+        "title": {
+            "type": "string",
+            "description": "Notification title"
+        },
+        "message": {
+            "type": "string",
+            "description": "Notification message body"
+        },
+        "is_read": {
+            "type": "boolean",
+            "description": "Whether the notification has been read, default false"
+        },
+        "related_id": {
+            "type": "string",
+            "description": "Related entity ID (diagnosis ID, etc.)"
+        },
+        "related_type": {
+            "type": "string",
+            "description": "Related entity type: diagnosis, plan, etc."
+        },
+        "week_number": {
+            "type": "integer",
+            "description": "Week number for weekly checkpoint notifications (1-4), null for other types"
+        },
+        "scheduled_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the notification should be shown"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "type",
+        "title",
+        "message"
+    ]
+}

@@ -1,0 +1,25 @@
+services:
+  # Backend Web Service (FastAPI)
+  - type: web
+    name: heartsync-backend
+    env: python
+    region: singapore # Closest to Korea for low latency
+    plan: free
+    rootDir: app/backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        value: sqlite+aiosqlite:///dev.db
+      - key: ENVIRONMENT
+        value: production
+      - key: IS_LAMBDA
+        value: false
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_EXPIRE_MINUTES
+        value: 1440
+      - key: TOSS_SECRET_KEY
+        sync: false
+      - key: FRONTEND_URL
+        value: https://heartsync.kr

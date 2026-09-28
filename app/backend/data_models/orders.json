@@ -1,0 +1,58 @@
+{
+    "title": "orders",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "plan_type": {
+            "type": "string",
+            "description": "Plan type identifier"
+        },
+        "plan_name": {
+            "type": "string",
+            "description": "Plan display name"
+        },
+        "amount": {
+            "type": "integer",
+            "description": "Payment amount in KRW"
+        },
+        "currency": {
+            "type": "string",
+            "description": "Currency code"
+        },
+        "status": {
+            "type": "string",
+            "description": "Order status: pending, paid, cancelled, failed"
+        },
+        "toss_payment_key": {
+            "type": "string",
+            "description": "Toss Payments payment key"
+        },
+        "toss_order_id": {
+            "type": "string",
+            "description": "Toss Payments order ID"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Created timestamp"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Updated timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "plan_type",
+        "amount"
+    ]
+}

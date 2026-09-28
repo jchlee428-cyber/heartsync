@@ -1,0 +1,43 @@
+{
+    "title": "sync_logs",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "status": {
+            "type": "string",
+            "description": "Sync status: success or failed"
+        },
+        "attempt_count": {
+            "type": "integer",
+            "description": "Number of retry attempts (0-based)"
+        },
+        "error_message": {
+            "type": "string",
+            "description": "Error message if failed, empty if success"
+        },
+        "sync_type": {
+            "type": "string",
+            "description": "Type of sync: auto or manual"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp of the sync attempt"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "status",
+        "attempt_count",
+        "sync_type",
+        "created_at"
+    ]
+}

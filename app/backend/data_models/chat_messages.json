@@ -1,0 +1,38 @@
+{
+    "title": "chat_messages",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "session_id": {
+            "type": "integer",
+            "description": "Related chat session ID"
+        },
+        "role": {
+            "type": "string",
+            "description": "Message role: user or assistant"
+        },
+        "content": {
+            "type": "string",
+            "description": "Message content text"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Message creation timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id",
+        "session_id",
+        "role",
+        "content"
+    ]
+}

@@ -1,0 +1,53 @@
+{
+    "title": "admin_audit_logs",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "admin_id": {
+            "type": "string",
+            "description": "Admin user ID who performed the action"
+        },
+        "admin_email": {
+            "type": "string",
+            "description": "Admin email at the time of action"
+        },
+        "action_type": {
+            "type": "string",
+            "description": "Type of action: role_change, setting_update, setting_add, setting_delete"
+        },
+        "target_type": {
+            "type": "string",
+            "description": "Target entity type: user, setting"
+        },
+        "target_id": {
+            "type": "string",
+            "description": "Target entity identifier"
+        },
+        "description": {
+            "type": "string",
+            "description": "Human-readable description of the action"
+        },
+        "details": {
+            "type": "string",
+            "description": "JSON string with additional details like old/new values"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Timestamp when the action was performed"
+        }
+    },
+    "required": [
+        "id",
+        "admin_id",
+        "admin_email",
+        "action_type",
+        "target_type",
+        "target_id",
+        "description",
+        "created_at"
+    ]
+}

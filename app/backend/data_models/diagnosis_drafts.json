@@ -1,0 +1,36 @@
+{
+    "title": "diagnosis_drafts",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "answers": {
+            "type": "string",
+            "description": "JSON string of current answers"
+        },
+        "current_question": {
+            "type": "integer",
+            "description": "Current question index"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Created timestamp"
+        },
+        "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Updated timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id"
+    ]
+}

@@ -1,0 +1,10 @@
+{
+  "name": "aicouple",
+  "version": "1.0.0",
+  "description": "HeartSync - AI Couple Relationship Diagnostics Platform",
+  "scripts": {
+    "dev": "powershell -Command \"Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd \\\"app/backend\\\"; ./.venv/Scripts/python.exe main.py'; cd app/frontend; npm run dev\"",
+    "dev:backend": "cd app/backend && .\\.venv\\Scripts\\python.exe main.py",
+    "dev:frontend": "cd app/frontend && npm run dev"
+  }
+}

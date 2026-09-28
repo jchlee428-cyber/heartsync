@@ -1,0 +1,39 @@
+{
+    "title": "diagnoses",
+    "type": "object",
+    "properties": {
+        "id": {
+            "type": "integer",
+            "description": "Primary key, auto-increment"
+        },
+        "user_id": {
+            "type": "string",
+            "description": "User ID"
+        },
+        "answers": {
+            "type": "string",
+            "description": "JSON string of question answers"
+        },
+        "scores": {
+            "type": "string",
+            "description": "JSON string of category scores"
+        },
+        "total_score": {
+            "type": "integer",
+            "description": "Total diagnosis score out of 50"
+        },
+        "ai_report": {
+            "type": "string",
+            "description": "AI generated analysis report text"
+        },
+        "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+        }
+    },
+    "required": [
+        "id",
+        "user_id"
+    ]
+}
