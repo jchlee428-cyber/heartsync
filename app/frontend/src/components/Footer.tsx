@@ -91,9 +91,12 @@ export default function Footer({ className = "" }: FooterProps) {
           </div>
         </div>
 
-        <p className="text-center text-[10px] text-gray-400 pt-1">
-          © {new Date().getFullYear()} HeartSync by 주식회사 레드뱅크. All rights reserved.
-        </p>
+        <div className="text-center text-[10px] text-gray-400 pt-1 space-y-0.5 leading-relaxed">
+          <p>© {new Date().getFullYear()} HeartSync (대표: 이종철). All Rights Reserved.</p>
+          <p className="text-[9px] text-gray-400">
+            본 사이트의 관계 진단 50문항, AI 심층 분석 알고리즘, 리포트 서식 및 시각 디자인 일체는 저작권법의 보호를 받는 독점 지식재산이며, 무단 복제·도용·재배포를 엄격히 금지합니다.
+          </p>
+        </div>
       </div>
 
       {/* Refund Policy Modal */}

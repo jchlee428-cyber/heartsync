@@ -1,5 +1,9 @@
 {
-  "name": "shadcnui",
+  "name": "heartsync-frontend",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "이종철 (HeartSync)",
+  "copyright": "Copyright (c) 2024-2026 이종철. All Rights Reserved.",
   "type": "module",
   "packageManager": "pnpm@8.10.0",
   "scripts": {

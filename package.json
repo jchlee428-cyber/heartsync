@@ -2,6 +2,10 @@
   "name": "aicouple",
   "version": "1.0.0",
   "description": "HeartSync - AI Couple Relationship Diagnostics Platform",
+  "private": true,
+  "license": "UNLICENSED",
+  "author": "이종철 (HeartSync) <vikin@hanmail.net>",
+  "copyright": "Copyright (c) 2024-2026 이종철 (HeartSync). All Rights Reserved.",
   "scripts": {
     "dev": "powershell -Command \"Start-Process powershell -ArgumentList '-NoExit', '-Command', 'cd \\\"app/backend\\\"; ./.venv/Scripts/python.exe main.py'; cd app/frontend; npm run dev\"",
     "dev:backend": "cd app/backend && .\\.venv\\Scripts\\python.exe main.py",
