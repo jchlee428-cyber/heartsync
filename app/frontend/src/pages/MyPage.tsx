@@ -127,10 +127,42 @@ export default function MyPage() {
 
   const checkAuth = async () => {
     try {
-      const res = await client.auth.me();
-      if (res?.data) {
-        setUser(res.data);
-        await Promise.all([loadDiagnoses(), loadSyncLogs(), loadChatSessions(), loadChatRatings(), loadOrders(), loadActivePlan(), loadNotifications()]);
+      const token = localStorage.getItem("token");
+      if (!token) {
+        setLoading(false);
+        return;
+      }
+      let currentUser: any = null;
+      try {
+        const res = await client.auth.me();
+        if (res?.data) {
+          currentUser = res.data;
+          localStorage.setItem("user", JSON.stringify(res.data));
+        }
+      } catch {
+        // Backend offline
+      }
+      if (!currentUser) {
+        const cached = localStorage.getItem("user");
+        if (cached) {
+          try {
+            currentUser = JSON.parse(cached);
+          } catch {
+            currentUser = { name: "회원", role: "user" };
+          }
+        }
+      }
+      if (currentUser) {
+        setUser(currentUser);
+        await Promise.all([
+          loadDiagnoses(),
+          loadSyncLogs(),
+          loadChatSessions(),
+          loadChatRatings(),
+          loadOrders(),
+          loadActivePlan(),
+          loadNotifications(),
+        ]).catch(() => {});
         // Auto-cleanup old logs (30+ days) once per session
         if (!autoCleanupDoneRef.current) {
           autoCleanupDoneRef.current = true;

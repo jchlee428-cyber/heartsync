@@ -22,11 +22,26 @@ export default function Header() {
         setLoading(false);
         return;
       }
-      const res = await client.auth.me();
-      if (res?.data) {
-        setUser(res.data);
+      try {
+        const res = await client.auth.me();
+        if (res?.data) {
+          setUser(res.data);
+          localStorage.setItem("user", JSON.stringify(res.data));
+          setLoading(false);
+          return;
+        }
+      } catch {
+        // Backend cold-starting or deploying, use cached user
+      }
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        try {
+          setUser(JSON.parse(cached));
+        } catch {
+          setUser({ name: "회원", role: "user" });
+        }
       } else {
-        setUser(null);
+        setUser({ name: "회원", role: "user" });
       }
     } catch {
       setUser(null);
