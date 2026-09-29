@@ -104,7 +104,7 @@ export default function LoginModal({
 
       if (redirectUrl) {
         window.location.href = redirectUrl;
-      } else {
+      } else if (!onSuccess) {
         window.location.reload();
       }
     } catch (err: any) {

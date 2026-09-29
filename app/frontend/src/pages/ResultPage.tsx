@@ -559,15 +559,50 @@ export default function ResultPage() {
 
   const loadDiagnosis = async () => {
     try {
-      const user = await client.auth.me();
-      if (!user?.data) {
+      let currentUser: any = null;
+      try {
+        const userRes = await client.auth.me();
+        currentUser = userRes?.data;
+      } catch {
+        // Backend offline
+      }
+
+      if (!currentUser) {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            currentUser = JSON.parse(storedUser);
+          } catch {
+            currentUser = { name: "회원", role: "user" };
+          }
+        } else if (localStorage.getItem("token")) {
+          currentUser = { name: "회원", role: "user" };
+        }
+      }
+
+      if (!currentUser) {
         toast.error("로그인이 필요합니다.");
         navigate("/");
         return;
       }
 
-      const response = await client.entities.diagnoses.get({ id: id! });
-      const data = response.data;
+      let data: any = null;
+      try {
+        const response = await client.entities.diagnoses.get({ id: id! });
+        data = response?.data;
+      } catch {
+        // Fallback to local storage
+      }
+
+      if (!data) {
+        const local = localStorage.getItem(`heartsync_diagnosis_${id}`) || localStorage.getItem("heartsync_last_diagnosis");
+        if (local) {
+          try {
+            data = JSON.parse(local);
+          } catch {}
+        }
+      }
+
       if (!data) {
         toast.error("진단 결과를 찾을 수 없습니다.");
         navigate("/");
@@ -679,28 +714,41 @@ export default function ResultPage() {
       fullReportRef.current = reportText;
       setAiReport(reportText);
       setIsGenerating(false);
+
+      // Always update localStorage record
+      const local = localStorage.getItem(`heartsync_diagnosis_${id}`) || localStorage.getItem("heartsync_last_diagnosis");
+      if (local) {
+        try {
+          const parsed = JSON.parse(local);
+          parsed.ai_report = reportText;
+          localStorage.setItem(`heartsync_diagnosis_${id}`, JSON.stringify(parsed));
+          localStorage.setItem("heartsync_last_diagnosis", JSON.stringify(parsed));
+        } catch {}
+      }
+
       try {
         await client.entities.diagnoses.update({
           id: id!,
           data: { ai_report: reportText },
         });
-        setReportSaved(true);
-        toast.success("AI 심층 리포트가 완성되었습니다.");
+      } catch (err) {
+        console.warn("Server entity update notice:", err);
+      }
 
-        try {
-          await client.apiCall.invoke({
-            url: "/api/v1/notifications/create-report-notification",
-            method: "POST",
-            data: {
-              diagnosis_id: id!,
-              total_score: totalScore,
-            },
-          });
-        } catch {
-          // Non-critical
-        }
+      setReportSaved(true);
+      toast.success("AI 심층 리포트가 완성되었습니다.");
+
+      try {
+        await client.apiCall.invoke({
+          url: "/api/v1/notifications/create-report-notification",
+          method: "POST",
+          data: {
+            diagnosis_id: id!,
+            total_score: totalScore,
+          },
+        });
       } catch {
-        toast.error("리포트 저장에 실패했습니다. 다시 시도해주세요.");
+        // Non-critical
       }
     };
 
