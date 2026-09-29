@@ -1041,6 +1041,23 @@ export default function ResultPage() {
           </p>
         </div>
 
+        {/* Temporary Storage Reassurance Indicator */}
+        <div className="mt-3 px-3.5 py-2.5 bg-emerald-50/90 border border-emerald-200/90 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2 min-w-0">
+            <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+            <span className="text-emerald-900 font-bold text-xs truncate">
+              진단 내역과 분석 리포트가 임시 저장되었습니다
+            </span>
+          </div>
+          <button
+            onClick={() => navigate("/mypage")}
+            className="text-[11px] text-emerald-700 hover:text-emerald-800 bg-emerald-100/80 hover:bg-emerald-200/80 px-2.5 py-1 rounded-lg font-bold transition-colors flex-shrink-0 flex items-center gap-1"
+          >
+            <span>보관함 보기</span>
+            <ChevronRight className="w-3 h-3" />
+          </button>
+        </div>
+
         {/* ── Viral Loop: 연인 1초 초대장 배너 (K-factor > 1) ── */}
         <div className="mt-4 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 rounded-2xl p-4 border border-pink-200/90 shadow-sm flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">

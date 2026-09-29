@@ -1128,13 +1128,18 @@ export default function DiagnosisPage() {
                 </span>
               </div>
             )}
-            {/* Offline banner in header */}
-            {isOffline && draftStatus === "idle" && (
-              <div className="flex items-center gap-1">
-                <WifiOff className="w-3.5 h-3.5 text-amber-500" />
-                <span className="text-[11px] font-medium text-amber-500">오프라인</span>
-              </div>
-            )}
+            {/* Manual temporary save button */}
+            <button
+              onClick={() => {
+                saveLocalDraft(answers, currentQ);
+                toast.success(`현재까지의 진단 답변(${answeredCount}/50문항)이 브라우저에 임시 저장되었습니다.`);
+              }}
+              className="flex items-center gap-1 px-2.5 py-1 bg-pink-50 hover:bg-pink-100 active:scale-95 rounded-lg text-[11px] font-bold text-pink-600 border border-pink-200 transition-all shadow-xs"
+              title="지금 답변 임시 저장하기"
+            >
+              <Save className="w-3.5 h-3.5" />
+              <span>임시저장</span>
+            </button>
             <span className="text-sm text-gray-400 font-medium">{answeredCount}/{totalQuestions}</span>
           </div>
         </div>

@@ -120,9 +120,17 @@ export default function MyPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadNotifCount, setUnreadNotifCount] = useState(0);
   const [notificationsExpanded, setNotificationsExpanded] = useState(true);
-  const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<number | string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const draftAnswersRaw = typeof window !== "undefined" ? localStorage.getItem("heartsync_draft_answers") : null;
+  let draftCount = 0;
+  if (draftAnswersRaw) {
+    try {
+      draftCount = Object.keys(JSON.parse(draftAnswersRaw)).length;
+    } catch {}
+  }
 
   useEffect(() => {
     checkAuth();
@@ -131,19 +139,17 @@ export default function MyPage() {
   const checkAuth = async () => {
     try {
       const token = localStorage.getItem("token");
-      if (!token) {
-        setLoading(false);
-        return;
-      }
       let currentUser: any = null;
-      try {
-        const res = await client.auth.me();
-        if (res?.data) {
-          currentUser = res.data;
-          localStorage.setItem("user", JSON.stringify(res.data));
+      if (token) {
+        try {
+          const res = await client.auth.me();
+          if (res?.data) {
+            currentUser = res.data;
+            localStorage.setItem("user", JSON.stringify(res.data));
+          }
+        } catch {
+          // Backend offline
         }
-      } catch {
-        // Backend offline
       }
       if (!currentUser) {
         const cached = localStorage.getItem("user");
@@ -153,6 +159,8 @@ export default function MyPage() {
           } catch {
             currentUser = { name: "회원", role: "user" };
           }
+        } else if (token) {
+          currentUser = { name: "회원", role: "user" };
         }
       }
       if (currentUser) {
@@ -172,23 +180,74 @@ export default function MyPage() {
           autoCleanupOldLogs();
         }
       } else {
+        await loadDiagnoses();
         setLoading(false);
       }
     } catch {
+      await loadDiagnoses();
       setLoading(false);
     }
   };
 
   const loadDiagnoses = async () => {
     try {
-      const response = await client.entities.diagnoses.query({
-        query: {},
-        sort: "-created_at",
-        limit: 50,
+      let serverItems: any[] = [];
+      try {
+        const response = await client.entities.diagnoses.query({
+          query: {},
+          sort: "-created_at",
+          limit: 50,
+        });
+        serverItems = response.data?.items || [];
+      } catch {
+        // Backend offline / 404
+      }
+
+      // Load locally / temporarily saved diagnoses
+      const localStr = localStorage.getItem("heartsync_local_diagnoses") || "[]";
+      let localItems: any[] = [];
+      try {
+        localItems = JSON.parse(localStr);
+      } catch {}
+
+      const lastDiagStr = localStorage.getItem("heartsync_last_diagnosis");
+      if (lastDiagStr) {
+        try {
+          const lastDiag = JSON.parse(lastDiagStr);
+          if (!localItems.some((item) => String(item.id) === String(lastDiag.id))) {
+            localItems.unshift(lastDiag);
+          }
+        } catch {}
+      }
+
+      // Merge and deduplicate by id
+      const map = new Map<string, any>();
+      for (const item of localItems) {
+        map.set(String(item.id), { ...item, is_temp_saved: true });
+      }
+      for (const item of serverItems) {
+        const localMatch = map.get(String(item.id));
+        if (localMatch && !item.ai_report && localMatch.ai_report) {
+          map.set(String(item.id), { ...item, ai_report: localMatch.ai_report });
+        } else {
+          map.set(String(item.id), item);
+        }
+      }
+
+      const mergedList = Array.from(map.values()).sort((a: any, b: any) => {
+        const timeA = new Date(a.created_at || 0).getTime();
+        const timeB = new Date(b.created_at || 0).getTime();
+        return timeB - timeA;
       });
-      setDiagnoses(response.data?.items || []);
+
+      setDiagnoses(mergedList);
     } catch {
-      toast.error("진단 기록을 불러올 수 없습니다.");
+      const localStr = localStorage.getItem("heartsync_local_diagnoses") || "[]";
+      try {
+        setDiagnoses(JSON.parse(localStr));
+      } catch {
+        setDiagnoses([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -454,11 +513,24 @@ export default function MyPage() {
     return { total, successCount, failedCount, successRate, avgRetry, weeklyTrend, maxDayTotal };
   }, [allSyncLogs]);
 
-  const handleDeleteDiagnosis = async (id: number) => {
+  const handleDeleteDiagnosis = async (id: number | string) => {
     setIsDeleting(true);
     try {
-      await client.entities.diagnoses.delete({ id: String(id) });
-      setDiagnoses((prev) => prev.filter((d) => d.id !== id));
+      // 1. Delete from local storage
+      const localStr = localStorage.getItem("heartsync_local_diagnoses") || "[]";
+      try {
+        const localItems = JSON.parse(localStr);
+        const filtered = localItems.filter((d: any) => String(d.id) !== String(id));
+        localStorage.setItem("heartsync_local_diagnoses", JSON.stringify(filtered));
+      } catch {}
+      localStorage.removeItem(`heartsync_diagnosis_${id}`);
+
+      // 2. Delete from server if numeric / server ID
+      try {
+        await client.entities.diagnoses.delete({ id: String(id) });
+      } catch {}
+
+      setDiagnoses((prev) => prev.filter((d) => String(d.id) !== String(id)));
       toast.success("진단 기록이 삭제되었습니다.");
     } catch {
       toast.error("진단 기록 삭제에 실패했습니다.");
@@ -672,12 +744,39 @@ export default function MyPage() {
         </div>
 
         {/* Diagnosis History */}
-        {user && (
+        {(user || diagnoses.length > 0 || (draftCount > 0 && draftCount < 50)) && (
           <div className="mt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 text-pink-500" />
-              진단 기록
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-pink-500" />
+                진단 기록 및 분석 리포트
+              </h3>
+              <span className="text-[11px] text-emerald-600 font-bold bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200 flex items-center gap-1">
+                💾 로컬/임시 보관 활성
+              </span>
+            </div>
+
+            {/* Draft in progress banner */}
+            {draftCount > 0 && draftCount < 50 && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center justify-between shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-700 font-bold text-base flex-shrink-0">
+                    📝
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-amber-900">작성 중인 진단 내역이 임시 저장되어 있습니다</p>
+                    <p className="text-[11px] text-amber-700 truncate">{draftCount}/50문항 답변 완료 · 언제든 이어서 검사할 수 있습니다</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate("/diagnosis")}
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-1 flex-shrink-0"
+                >
+                  <span>이어서 하기</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {loading ? (
               <div className="text-center py-10">
@@ -704,16 +803,19 @@ export default function MyPage() {
                   return (
                     <div
                       key={d.id}
-                      className="w-full bg-white rounded-xl p-4 shadow-sm border border-gray-50 hover:shadow-md transition-all"
+                      className="w-full bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all"
                     >
                       <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <Calendar className="w-3.5 h-3.5 text-gray-400" />
                           <span className="text-xs text-gray-400">{formatDate(d.created_at)}</span>
+                          <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[10px] font-bold rounded-full border border-emerald-200">
+                            💾 임시 저장됨
+                          </span>
                           {hasAiReport && (
-                            <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-purple-50 text-purple-600 text-[9px] font-bold rounded-full">
+                            <span className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-purple-50 text-purple-700 text-[10px] font-bold rounded-full border border-purple-200">
                               <Sparkles className="w-2.5 h-2.5" />
-                              AI 리포트
+                              AI 리포트 보관
                             </span>
                           )}
                         </div>
@@ -758,6 +860,18 @@ export default function MyPage() {
                           </div>
                         </div>
                       </button>
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <span className="text-[11px] text-gray-400">
+                          {hasAiReport ? "AI 심층 분석 리포트 열람 가능" : "진단 점수 및 영역별 분석 확인"}
+                        </span>
+                        <button
+                          onClick={() => navigate(`/result/${d.id}`)}
+                          className="px-3 py-1.5 rounded-lg bg-pink-50 hover:bg-pink-100 text-pink-600 font-bold text-xs flex items-center gap-1 transition-colors"
+                        >
+                          <span>리포트 다시보기</span>
+                          <ChevronRight className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
