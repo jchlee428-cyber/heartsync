@@ -42,8 +42,7 @@ async def initialize_database():
         logger.info("Database initialized successfully")
         logger.debug(f"[DB_OP] Database initialization completed in {time.time() - start_time:.4f}s")
     except Exception as e:
-        logger.error(f"Failed to initialize database: {e}")
-        raise
+        logger.error(f"Failed to initialize database: {e}", exc_info=True)
 
 
 async def close_database():

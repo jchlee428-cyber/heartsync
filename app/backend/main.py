@@ -73,15 +73,21 @@ async def lifespan(app: FastAPI):
     logger.info("=== Application startup initiated ===")
 
     # MODULE_STARTUP_START
-    await initialize_database()
-    await initialize_mock_data()
-    await initialize_admin_user()
+    try:
+        await initialize_database()
+        await initialize_mock_data()
+        await initialize_admin_user()
+    except Exception as e:
+        logger.error(f"Startup warning/error (server will continue running): {e}", exc_info=True)
     # MODULE_STARTUP_END
 
     logger.info("=== Application startup completed successfully ===")
     yield
     # MODULE_SHUTDOWN_START
-    await close_database()
+    try:
+        await close_database()
+    except Exception as e:
+        logger.warning(f"Error during database shutdown: {e}")
     # MODULE_SHUTDOWN_END
 
 
