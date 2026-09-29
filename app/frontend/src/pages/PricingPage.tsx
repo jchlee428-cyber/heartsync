@@ -159,16 +159,56 @@ export default function PricingPage() {
     checkStripeStatus();
   }, []);
 
+  const getEffectiveUser = () => {
+    if (user) return user;
+    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+    const token = localStorage.getItem("token");
+    if (!token || isLoggedOut) return null;
+
+    const cached = localStorage.getItem("user");
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        setUser(parsed);
+        return parsed;
+      } catch {}
+    }
+    const fallbackUser = { name: "회원", role: "user" };
+    setUser(fallbackUser);
+    return fallbackUser;
+  };
+
   const checkAuth = async () => {
+    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+    const token = localStorage.getItem("token");
+    if (!token || isLoggedOut) {
+      setUser(null);
+      return;
+    }
+
+    // Immediately restore cached user to avoid any UI flash or delay
+    const cached = localStorage.getItem("user");
+    if (cached) {
+      try {
+        setUser(JSON.parse(cached));
+      } catch {
+        setUser({ name: "회원", role: "user" });
+      }
+    } else {
+      setUser({ name: "회원", role: "user" });
+    }
+
     try {
       const res = await client.auth.me();
-      if (res.data) {
+      if (res?.data) {
         setUser(res.data);
-        fetchCurrentPlan();
+        localStorage.setItem("user", JSON.stringify(res.data));
       }
     } catch {
-      // Not logged in
+      // Backend cold-starting or offline; keep cached session
     }
+
+    fetchCurrentPlan();
   };
 
   const checkTossStatus = async () => {
@@ -224,7 +264,8 @@ export default function PricingPage() {
   };
 
   const handlePurchaseToss = async (planId: string) => {
-    if (!user) {
+    const activeUser = getEffectiveUser();
+    if (!activeUser) {
       toast.info("로그인이 필요합니다");
       setIsLoginModalOpen(true);
       return;
@@ -277,7 +318,8 @@ export default function PricingPage() {
   };
 
   const handlePurchaseStripe = async (planId: string) => {
-    if (!user) {
+    const activeUser = getEffectiveUser();
+    if (!activeUser) {
       toast.info("로그인이 필요합니다");
       setIsLoginModalOpen(true);
       return;
@@ -318,7 +360,8 @@ export default function PricingPage() {
   };
 
   const handlePurchase = async (planId: string) => {
-    if (!user) {
+    const activeUser = getEffectiveUser();
+    if (!activeUser) {
       toast.info("로그인이 필요합니다");
       setIsLoginModalOpen(true);
       return;
@@ -785,7 +828,13 @@ export default function PricingPage() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={() => checkAuth()}
+        onSuccess={(loggedInUser) => {
+          setIsLoginModalOpen(false);
+          if (loggedInUser) {
+            setUser(loggedInUser);
+          }
+          checkAuth();
+        }}
       />
 
       {/* Gift Modal (100일/1주년/기념일 선물) */}
