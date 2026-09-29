@@ -22,6 +22,32 @@ class Settings(BaseSettings):
     lambda_function_name: str = "fastapi-backend"
     aws_region: str = "us-east-1"
 
+    # Database
+    database_url: str = "sqlite+aiosqlite:///dev.db"
+
+    # Security & Auth
+    jwt_secret_key: str = "heartsync-secret-key-321"
+    jwt_expire_minutes: int = 1440
+    jwt_algorithm: str = "HS256"
+
+    # OIDC & External Services
+    oidc_client_id: str = ""
+    oidc_client_secret: str = ""
+    oidc_issuer_url: str = ""
+    oidc_scope: str = "openid email profile"
+    admin_user_id: str = ""
+    admin_user_email: str = ""
+
+    # AI & External APIs
+    app_ai_base_url: str = ""
+    app_ai_key: str = ""
+    oss_service_url: str = ""
+    oss_api_key: str = ""
+
+    # Frontend URL
+    frontend_url: str = "https://heartsync.kr"
+    toss_secret_key: str = ""
+
     @property
     def backend_url(self) -> str:
         """Generate backend URL from host and port."""
