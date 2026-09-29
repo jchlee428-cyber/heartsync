@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Heart, MessageCircle, RotateCcw, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, CheckCircle2, Sparkles, BookOpen, Target, Lightbulb, RefreshCw, Download, Loader2, Share2, Mail, Link2, X as XIcon, Lock, Crown, Zap, Star, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, Heart, MessageCircle, RotateCcw, TrendingUp, TrendingDown, Minus, AlertTriangle, Shield, ShieldCheck, CheckCircle, CheckCircle2, Sparkles, BookOpen, Target, Lightbulb, RefreshCw, Download, Loader2, Share2, Mail, Link2, X as XIcon, Lock, Crown, Zap, Star, ChevronRight, Users } from "lucide-react";
 import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
@@ -535,6 +535,34 @@ export default function ResultPage() {
     localStorage.setItem("heartsync_active_test_plan", "single_analysis");
     localStorage.setItem("heartsync_test_paid", "true");
 
+    const simOrderNum = `SIM-${Date.now().toString().slice(-6)}`;
+    const newOrder = {
+      id: Date.now(),
+      plan_type: "single_analysis",
+      plan_name: "1회 정밀 분석 리포트",
+      amount: 19900,
+      currency: "KRW",
+      status: "paid",
+      payment_method: "가상 테스트 결제 (1초 잠금해제)",
+      created_at: new Date().toISOString(),
+      order_id: simOrderNum,
+    };
+
+    try {
+      const existing = JSON.parse(localStorage.getItem("heartsync_orders") || "[]");
+      localStorage.setItem("heartsync_orders", JSON.stringify([newOrder, ...existing.filter((o: any) => o.order_id !== newOrder.order_id)]));
+      localStorage.setItem("heartsync_active_plan", JSON.stringify({
+        plan_type: "single_analysis",
+        plan_name: "1회 정밀 분석 리포트",
+        analyses_remaining: 1,
+        is_active: true,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        status: "paid",
+        payment_method: "가상 테스트 결제 (1초 잠금해제)",
+        paid_at: new Date().toISOString(),
+      }));
+    } catch {}
+
     try {
       await client.apiCall.invoke({
         url: "/api/v1/payment/simulate_payment",
@@ -1057,6 +1085,44 @@ export default function ResultPage() {
             <ChevronRight className="w-3 h-3" />
           </button>
         </div>
+
+        {/* ── Payment & Report Access Status Card ── */}
+        {hasPaidPlan ? (
+          <div className="mt-3 px-3.5 py-2.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border border-emerald-200/90 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <span className="text-emerald-950 font-bold text-xs">
+                  결제 상태: <span className="text-emerald-700 font-extrabold">결제 완료 (AI 심층 솔루션 잠금 해제됨)</span>
+                </span>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 flex-shrink-0">
+              VIP 열람 중
+            </span>
+          </div>
+        ) : (
+          <div className="mt-3 px-3.5 py-2.5 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/90 rounded-xl flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <Lock className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <div className="min-w-0">
+                <span className="text-amber-950 font-bold text-xs truncate">
+                  결제 상태: <span className="text-amber-700 font-extrabold">무료 미니 진단 (핵심 솔루션 잠김)</span>
+                </span>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                if (id) localStorage.setItem("heartsync_pending_diagnosis_id", id);
+                navigate("/pricing");
+              }}
+              className="text-[11px] text-amber-800 bg-amber-200/80 hover:bg-amber-300/80 px-2.5 py-1 rounded-lg font-bold transition-colors flex-shrink-0 flex items-center gap-1 shadow-2xs"
+            >
+              <span>잠금 해제</span>
+              <ChevronRight className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         {/* ── Viral Loop: 연인 1초 초대장 배너 (K-factor > 1) ── */}
         <div className="mt-4 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 rounded-2xl p-4 border border-pink-200/90 shadow-sm flex items-center justify-between gap-3">

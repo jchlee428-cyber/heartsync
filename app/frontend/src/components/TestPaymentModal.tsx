@@ -80,6 +80,38 @@ export default function TestPaymentModal({
         // Continue with client-side simulation so testing is never blocked
       }
 
+      // ── Persist locally so payment status is immediately visible across all pages ──
+      const newLocalOrder = {
+        id: Date.now(),
+        plan_type: planId,
+        plan_name: planName,
+        amount: amount || (planId === "single_analysis" ? 19900 : planId === "monthly_subscription" ? 29000 : 49000),
+        currency: "KRW",
+        status: "paid",
+        payment_method: methodNameMap[selectedMethod] || "가상 결제 (시뮬레이션)",
+        created_at: new Date().toISOString(),
+        order_id: orderData.db_order_id,
+      };
+
+      try {
+        const storedOrders = JSON.parse(localStorage.getItem("heartsync_orders") || "[]");
+        localStorage.setItem("heartsync_orders", JSON.stringify([newLocalOrder, ...storedOrders.filter((o: any) => o.order_id !== newLocalOrder.order_id)]));
+        localStorage.setItem("heartsync_active_plan", JSON.stringify({
+          plan_type: planId,
+          plan_name: planName,
+          analyses_remaining: planId === "single_analysis" ? 1 : 999,
+          is_active: true,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+          status: "paid",
+          payment_method: methodNameMap[selectedMethod] || "가상 결제 (시뮬레이션)",
+          paid_at: new Date().toISOString(),
+        }));
+        localStorage.setItem("heartsync_active_test_plan", planId);
+        localStorage.setItem("heartsync_test_paid", "true");
+      } catch (saveErr) {
+        console.warn("Local storage save error:", saveErr);
+      }
+
       confetti({
         particleCount: 70,
         spread: 60,

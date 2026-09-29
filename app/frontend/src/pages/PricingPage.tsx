@@ -198,6 +198,17 @@ export default function PricingPage() {
   };
 
   const fetchCurrentPlan = async () => {
+    // Check local storage active plan first
+    try {
+      const localPlanStr = localStorage.getItem("heartsync_active_plan");
+      if (localPlanStr) {
+        const parsed = JSON.parse(localPlanStr);
+        if (parsed.plan_type && parsed.is_active) {
+          setCurrentPlan(parsed.plan_type);
+        }
+      }
+    } catch {}
+
     try {
       const res = await client.apiCall.invoke({
         url: "/api/v1/payment/my-plan",
@@ -208,7 +219,7 @@ export default function PricingPage() {
         setCurrentPlan(res.data.plan_type);
       }
     } catch {
-      // Default to free
+      // Default to free or existing local plan
     }
   };
 
@@ -367,6 +378,33 @@ export default function PricingPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Current Payment Status Banner */}
+        {currentPlan && currentPlan !== "free" && (
+          <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-green-50 border border-emerald-200 rounded-2xl p-4 mb-6 shadow-sm flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold text-lg flex-shrink-0">
+                ✅
+              </div>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                    현재 결제 상태: 결제 완료
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-emerald-950 mt-0.5">
+                  {PLANS.find((p) => p.id === currentPlan)?.name || currentPlan} 플랜 정상 이용 중
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate("/mypage")}
+              className="text-xs text-emerald-700 bg-white border border-emerald-200 hover:bg-emerald-50 font-bold px-3 py-1.5 rounded-xl shadow-2xs"
+            >
+              내 플랜 보기
+            </button>
           </div>
         )}
 
@@ -773,7 +811,7 @@ export default function PricingPage() {
             setIsTestModalOpen(false);
             const diagId = result.diagnosis_id || localStorage.getItem("heartsync_pending_diagnosis_id");
             navigate(
-              `/payment-success?paymentKey=${result.toss_payment_key || "sim_test"}&orderId=${result.db_order_id || "TEST-SIM"}&amount=0&simulated=true${diagId ? `&diagnosis_id=${diagId}` : ""}`
+              `/payment-success?paymentKey=${result.toss_payment_key || "sim_test"}&orderId=${result.db_order_id || "TEST-SIM"}&amount=0&simulated=true&plan_type=${testModalPlan.id}${diagId ? `&diagnosis_id=${diagId}` : ""}`
             );
           }}
           onLaunchTossRealTest={() => {

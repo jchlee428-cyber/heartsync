@@ -61,48 +61,116 @@ export default function PaymentHistoryPage() {
   }, []);
 
   const checkAuth = async () => {
+    let currentUser: any = null;
     try {
       const res = await client.auth.me();
       if (res?.data) {
-        setUser(res.data);
-        await Promise.all([loadOrders(), loadActivePlan()]);
+        currentUser = res.data;
       }
     } catch {
-      // Not logged in - show login prompt
-    } finally {
-      setLoading(false);
+      // Backend offline or not logged in
     }
+
+    if (!currentUser) {
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        try {
+          currentUser = JSON.parse(cached);
+        } catch {
+          currentUser = { name: "회원", role: "user" };
+        }
+      } else if (localStorage.getItem("token")) {
+        currentUser = { name: "회원", role: "user" };
+      }
+    }
+
+    if (currentUser) {
+      setUser(currentUser);
+    }
+
+    await Promise.all([loadOrders(), loadActivePlan()]).catch(() => {});
+    setLoading(false);
   };
 
   const loadOrders = async () => {
+    let serverItems: any[] = [];
     try {
       const response = await client.entities.orders.query({
         query: {},
         sort: "-created_at",
         limit: 100,
       });
-      const items = response.data?.items || [];
-      setOrders(items);
-      const paid = items.filter((o: Order) => o.status === "paid");
-      const total = paid.reduce((sum: number, o: Order) => sum + (o.amount || 0), 0);
-      setTotalSpent(total);
+      serverItems = response.data?.items || [];
     } catch {
       // Non-critical
     }
+
+    let localItems: any[] = [];
+    try {
+      const stored = localStorage.getItem("heartsync_orders");
+      if (stored) localItems = JSON.parse(stored);
+    } catch {}
+
+    const orderMap = new Map<string, any>();
+    for (const o of localItems) {
+      orderMap.set(String(o.order_id || o.id), o);
+    }
+    for (const o of serverItems) {
+      orderMap.set(String(o.order_id || o.id), o);
+    }
+
+    const merged = Array.from(orderMap.values()).sort((a, b) => {
+      const tA = new Date(a.created_at || 0).getTime();
+      const tB = new Date(b.created_at || 0).getTime();
+      return tB - tA;
+    });
+
+    setOrders(merged);
+    const paid = merged.filter((o: Order) => o.status === "paid");
+    const total = paid.reduce((sum: number, o: Order) => sum + (o.amount || 0), 0);
+    setTotalSpent(total);
   };
 
   const loadActivePlan = async () => {
+    let planData: any = null;
     try {
       const res = await client.apiCall.invoke({
         url: "/api/v1/payment/my-plan",
         method: "GET",
         data: {},
       });
-      if (res.data) {
-        setActivePlan(res.data);
+      if (res.data?.is_active && res.data?.plan_type !== "free") {
+        planData = res.data;
       }
     } catch {
       // Non-critical
+    }
+
+    if (!planData) {
+      try {
+        const localPlanStr = localStorage.getItem("heartsync_active_plan");
+        if (localPlanStr) {
+          const parsed = JSON.parse(localPlanStr);
+          if (parsed.is_active) {
+            planData = parsed;
+          }
+        } else {
+          const testPlan = localStorage.getItem("heartsync_active_test_plan");
+          if (testPlan) {
+            planData = {
+              plan_type: testPlan,
+              plan_name: testPlan === "single_analysis" ? "1회 정밀 분석 리포트" : testPlan === "monthly_subscription" ? "30일 올케어 구독" : "커플 프리미엄 패키지",
+              analyses_remaining: testPlan === "single_analysis" ? 1 : 999,
+              is_active: true,
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            };
+          }
+        }
+      } catch {}
+    }
+
+    if (planData) {
+      setActivePlan(planData);
     }
   };
 
@@ -141,7 +209,7 @@ export default function PaymentHistoryPage() {
     );
   }
 
-  if (!user) {
+  if (!user && orders.length === 0 && !activePlan) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/30 to-white">
         <Header />

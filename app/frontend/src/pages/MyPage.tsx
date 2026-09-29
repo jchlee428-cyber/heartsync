@@ -77,6 +77,8 @@ interface Order {
   currency: string;
   status: string;
   created_at: string;
+  order_id?: string;
+  payment_method?: string;
 }
 
 interface ActivePlan {
@@ -85,13 +87,15 @@ interface ActivePlan {
   analyses_remaining: number;
   is_active: boolean;
   expires_at: string | null;
+  status?: string;
+  payment_method?: string;
 }
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  paid: { label: "결제 완료", color: "text-green-600", bg: "bg-green-50" },
-  pending: { label: "대기 중", color: "text-amber-600", bg: "bg-amber-50" },
-  cancelled: { label: "취소됨", color: "text-red-600", bg: "bg-red-50" },
-  refunded: { label: "환불됨", color: "text-gray-600", bg: "bg-gray-100" },
+  paid: { label: "결제 완료", color: "text-emerald-700", bg: "bg-emerald-50 border border-emerald-200" },
+  pending: { label: "결제 대기", color: "text-amber-700", bg: "bg-amber-50 border border-amber-200" },
+  cancelled: { label: "결제 취소", color: "text-red-700", bg: "bg-red-50 border border-red-200" },
+  refunded: { label: "환불 완료", color: "text-gray-700", bg: "bg-gray-100 border border-gray-200" },
 };
 
 const PLAN_GRADIENT: Record<string, string> = {
@@ -180,11 +184,11 @@ export default function MyPage() {
           autoCleanupOldLogs();
         }
       } else {
-        await loadDiagnoses();
+        await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
         setLoading(false);
       }
     } catch {
-      await loadDiagnoses();
+      await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
       setLoading(false);
     }
   };
@@ -304,30 +308,81 @@ export default function MyPage() {
   };
 
   const loadOrders = async () => {
+    let serverOrders: any[] = [];
     try {
       const response = await client.entities.orders.query({
         query: {},
         sort: "-created_at",
         limit: 50,
       });
-      setOrders(response.data?.items || []);
+      serverOrders = response.data?.items || [];
     } catch {
       // Non-critical
     }
+
+    let localOrders: any[] = [];
+    try {
+      const stored = localStorage.getItem("heartsync_orders");
+      if (stored) localOrders = JSON.parse(stored);
+    } catch {}
+
+    const orderMap = new Map<string, any>();
+    for (const o of localOrders) {
+      orderMap.set(String(o.order_id || o.id), o);
+    }
+    for (const o of serverOrders) {
+      orderMap.set(String(o.order_id || o.id), o);
+    }
+
+    const merged = Array.from(orderMap.values()).sort((a, b) => {
+      const tA = new Date(a.created_at || 0).getTime();
+      const tB = new Date(b.created_at || 0).getTime();
+      return tB - tA;
+    });
+
+    setOrders(merged);
   };
 
   const loadActivePlan = async () => {
+    let planData: any = null;
     try {
       const res = await client.apiCall.invoke({
         url: "/api/v1/payment/my-plan",
         method: "GET",
         data: {},
       });
-      if (res.data) {
-        setActivePlan(res.data);
+      if (res.data?.is_active && res.data?.plan_type !== "free") {
+        planData = res.data;
       }
     } catch {
       // Non-critical
+    }
+
+    if (!planData) {
+      try {
+        const localPlanStr = localStorage.getItem("heartsync_active_plan");
+        if (localPlanStr) {
+          const parsed = JSON.parse(localPlanStr);
+          if (parsed.is_active) {
+            planData = parsed;
+          }
+        } else {
+          const testPlan = localStorage.getItem("heartsync_active_test_plan");
+          if (testPlan) {
+            planData = {
+              plan_type: testPlan,
+              plan_name: testPlan === "single_analysis" ? "1회 정밀 분석 리포트" : testPlan === "monthly_subscription" ? "30일 올케어 구독" : "커플 프리미엄 패키지",
+              analyses_remaining: testPlan === "single_analysis" ? 1 : 999,
+              is_active: true,
+              expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            };
+          }
+        }
+      } catch {}
+    }
+
+    if (planData) {
+      setActivePlan(planData);
     }
   };
 
@@ -585,8 +640,22 @@ export default function MyPage() {
                 <User className="w-7 h-7 text-primary-foreground" />
               </div>
               <div className="flex-1">
-                <p className="text-base font-bold text-foreground">회원</p>
-                <p className="text-xs text-muted-foreground mt-0.5">진단 {diagnoses.length}회 완료</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <p className="text-base font-bold text-foreground">회원</p>
+                  {activePlan && activePlan.is_active && activePlan.plan_type !== "free" ? (
+                    <span className="text-[10px] font-bold text-pink-600 bg-pink-50 border border-pink-200 px-2 py-0.5 rounded-full flex items-center gap-0.5">
+                      <Crown className="w-3 h-3 text-pink-500" />
+                      VIP 결제 회원
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                      무료 체험 회원
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  진단 {diagnoses.length}회 완료 · {activePlan && activePlan.is_active && activePlan.plan_type !== "free" ? `${activePlan.plan_name} 결제 완료` : "미결제"}
+                </p>
               </div>
               <button
                 onClick={handleLogout}
@@ -598,16 +667,30 @@ export default function MyPage() {
             </div>
           ) : (
             <div className="text-center py-4">
-              <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3">
-                <User className="w-7 h-7 text-muted-foreground" />
+              <div className="w-14 h-14 rounded-full bg-pink-50 text-pink-500 border border-pink-200 flex items-center justify-center mx-auto mb-3">
+                <User className="w-7 h-7" />
               </div>
-              <p className="text-sm text-muted-foreground mb-4">로그인하고 진단 기록을 확인하세요</p>
+              <div className="flex items-center justify-center gap-1.5 mb-1">
+                <p className="text-base font-bold text-foreground">체험 모드</p>
+                {activePlan && activePlan.is_active && activePlan.plan_type !== "free" ? (
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full">
+                    결제 완료 (정상 승인)
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                    미결제 (무료 이용)
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">
+                진단 {diagnoses.length}건 보관 중 · 계정을 연동하면 다른 기기에서도 동기화됩니다
+              </p>
               <button
                 onClick={handleLogin}
-                className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold text-sm px-6 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all"
+                className="inline-flex items-center gap-2 bg-primary text-primary-foreground font-bold text-xs px-5 py-2.5 rounded-full shadow-md hover:shadow-lg transition-all"
               >
                 <Heart className="w-4 h-4" />
-                로그인
+                로그인 / 회원가입
               </button>
             </div>
           )}
@@ -894,12 +977,24 @@ export default function MyPage() {
         )}
 
         {/* Payment & Plan Section */}
-        {user && (
+        {(user || orders.length > 0 || (activePlan && activePlan.is_active)) && (
           <div className="mt-6">
-            <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-              <CreditCard className="w-4 h-4 text-pink-500" />
-              결제 및 플랜
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">
+                <CreditCard className="w-4 h-4 text-pink-500" />
+                결제 및 플랜 상태
+              </h3>
+              {activePlan && activePlan.is_active && activePlan.plan_type !== "free" ? (
+                <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  결제 완료 (정상 승인)
+                </span>
+              ) : (
+                <span className="text-[11px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
+                  미결제 (무료 이용)
+                </span>
+              )}
+            </div>
 
             {/* Active Plan Card */}
             {activePlan && activePlan.is_active && activePlan.plan_type !== "free" ? (
@@ -909,9 +1004,9 @@ export default function MyPage() {
                     <Crown className="w-5 h-5" />
                     <span className="text-sm font-bold">{activePlan.plan_name}</span>
                   </div>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-bold">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-white/20 backdrop-blur-sm rounded-full text-[10px] font-extrabold border border-white/30">
                     <ShieldCheck className="w-3 h-3" />
-                    활성
+                    결제 승인 완료
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
@@ -950,8 +1045,11 @@ export default function MyPage() {
                       <CreditCard className="w-5 h-5 text-gray-400" />
                     </div>
                     <div>
-                      <p className="text-sm font-bold text-gray-700">무료 체험</p>
-                      <p className="text-[11px] text-gray-400">프리미엄 플랜으로 업그레이드하세요</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-bold text-gray-800">무료 체험</p>
+                        <span className="text-[10px] bg-gray-200 text-gray-600 px-1.5 py-0.2 rounded font-semibold">미결제</span>
+                      </div>
+                      <p className="text-[11px] text-gray-400">프리미엄 플랜 결제 시 전체 솔루션이 열립니다</p>
                     </div>
                   </div>
                   <button
@@ -972,7 +1070,7 @@ export default function MyPage() {
               >
                 <span className="text-xs font-semibold text-gray-600 flex items-center gap-1.5">
                   <Receipt className="w-3.5 h-3.5 text-gray-400" />
-                  결제 내역
+                  결제 내역 및 주문 상태
                   {orders.length > 0 && (
                     <span className="text-[10px] text-gray-400 font-normal">({orders.length}건)</span>
                   )}
@@ -1001,7 +1099,7 @@ export default function MyPage() {
                     return (
                       <div
                         key={order.id}
-                        className="bg-white rounded-xl p-4 shadow-sm border border-gray-50"
+                        className="bg-white rounded-xl p-4 shadow-sm border border-gray-100 hover:shadow-md transition-all"
                       >
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex items-center gap-2.5">
@@ -1010,18 +1108,23 @@ export default function MyPage() {
                             </div>
                             <div>
                               <p className="text-sm font-bold text-gray-900">{order.plan_name || order.plan_type}</p>
-                              <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
-                                <Clock className="w-2.5 h-2.5" />
-                                {formatDateTime(order.created_at)}
-                              </p>
+                              <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-400">
+                                <span className="flex items-center gap-0.5">
+                                  <Clock className="w-2.5 h-2.5" />
+                                  {formatDateTime(order.created_at)}
+                                </span>
+                                {order.order_id && (
+                                  <span className="font-mono text-gray-400">#{order.order_id.slice(-8)}</span>
+                                )}
+                              </div>
                             </div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${statusInfo.bg} ${statusInfo.color}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${statusInfo.bg} ${statusInfo.color}`}>
                             {statusInfo.label}
                           </span>
                         </div>
-                        <div className="flex items-center justify-between pt-2 border-t border-gray-50">
-                          <span className="text-xs text-gray-400">결제 금액</span>
+                        <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                          <span className="text-xs text-gray-400">{order.payment_method || "간편결제"}</span>
                           <span className="text-sm font-extrabold text-gray-900">
                             {formatCurrency(order.amount, order.currency || "krw")}
                           </span>

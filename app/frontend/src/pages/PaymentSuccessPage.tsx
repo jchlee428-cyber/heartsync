@@ -44,6 +44,38 @@ export default function PaymentSuccessPage() {
     couple_premium: "커플 프리미엄 패키지",
   };
 
+  const recordLocalPaymentSuccess = (plan: string, orderNum: string | number | null, method: string, amtStr?: string) => {
+    try {
+      const order = {
+        id: Date.now(),
+        plan_type: plan,
+        plan_name: planNames[plan] || plan,
+        amount: amtStr ? Number(String(amtStr).replace(/[^0-9]/g, "")) || 0 : (plan === "single_analysis" ? 19900 : plan === "monthly_subscription" ? 29000 : 49000),
+        currency: "KRW",
+        status: "paid",
+        payment_method: method || "간편결제",
+        created_at: new Date().toISOString(),
+        order_id: String(orderNum || `ORD-${Date.now().toString().slice(-6)}`),
+      };
+      const existing = JSON.parse(localStorage.getItem("heartsync_orders") || "[]");
+      localStorage.setItem("heartsync_orders", JSON.stringify([order, ...existing.filter((o: any) => o.order_id !== order.order_id)]));
+      localStorage.setItem("heartsync_active_plan", JSON.stringify({
+        plan_type: plan,
+        plan_name: planNames[plan] || plan,
+        analyses_remaining: plan === "single_analysis" ? 1 : 999,
+        is_active: true,
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+        status: "paid",
+        payment_method: method,
+        paid_at: new Date().toISOString(),
+      }));
+      localStorage.setItem("heartsync_active_test_plan", plan);
+      localStorage.setItem("heartsync_test_paid", "true");
+    } catch (e) {
+      console.warn("Failed to persist order locally:", e);
+    }
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
 
@@ -66,9 +98,13 @@ export default function PaymentSuccessPage() {
       // Mock / Direct return from simulated test payment
       setStatus("success");
       const paramPlan = searchParams.get("plan_type") || "single_analysis";
+      const simOrder = searchParams.get("orderId") || `SIM-${Date.now().toString().slice(-6)}`;
       setPlanType(paramPlan);
+      setDbOrderId(simOrder as any);
       setPaymentMethod("가상 테스트 결제 (시뮬레이션)");
       setPaidAmount("₩0 (테스트 체험)");
+      recordLocalPaymentSuccess(paramPlan, simOrder, "가상 테스트 결제 (시뮬레이션)", "₩0");
+
       const diagId = searchParams.get("diagnosis_id") || localStorage.getItem("heartsync_pending_diagnosis_id");
       if (diagId) {
         setDiagnosisId(diagId);
@@ -83,6 +119,7 @@ export default function PaymentSuccessPage() {
       setStatus("success");
       setPlanType("monthly_subscription");
       setPaidAmount(amount ? `₩${Number(amount).toLocaleString()}` : "₩29,000");
+      recordLocalPaymentSuccess("monthly_subscription", orderId || `GIFT-${Date.now().toString().slice(-6)}`, "선물 결제", amount || "29000");
     } else {
       setErrorMessage("결제 정보가 올바르지 않습니다. 다시 시도해주세요.");
       setStatus("failed");
@@ -111,7 +148,9 @@ export default function PaymentSuccessPage() {
         setDbOrderId(res.data.db_order_id || null);
         setPaymentMethod(res.data.payment_method || "");
         setReceiptUrl(res.data.receipt_url || null);
-        setPaidAmount(amount ? `₩${Number(amount).toLocaleString()}` : "");
+        const amtStr = amount ? `₩${Number(amount).toLocaleString()}` : "";
+        setPaidAmount(amtStr);
+        recordLocalPaymentSuccess(res.data.plan_type || "single_analysis", res.data.db_order_id || orderId, res.data.payment_method || "토스페이먼츠", amtStr);
 
         if (giftTicketId) {
           // Gift ticket purchase completed - user will view/share their gift ticket!
@@ -151,6 +190,7 @@ export default function PaymentSuccessPage() {
         setDbOrderId(res.data.db_order_id || null);
         setPaymentMethod("Stripe");
         setPaidAmount("");
+        recordLocalPaymentSuccess(res.data.plan_type || "single_analysis", res.data.db_order_id || sessionId, "Stripe", "");
 
         const diagId = localStorage.getItem("heartsync_pending_diagnosis_id");
         if (diagId) {
@@ -238,26 +278,46 @@ export default function PaymentSuccessPage() {
               </p>
             </div>
 
-            {/* Order Info */}
-            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+            {/* Order Info with Clear Payment Status */}
+            <div className="bg-gray-50/90 rounded-2xl p-5 space-y-3 border border-gray-100 shadow-xs text-left">
+              <div className="flex justify-between items-center text-sm pb-2.5 border-b border-gray-200/80">
+                <span className="text-gray-600 font-semibold flex items-center gap-1.5">
+                  <CreditCard className="w-4 h-4 text-pink-500" />
+                  결제 상태
+                </span>
+                <span className="inline-flex items-center gap-1.5 font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-300 px-3 py-1 rounded-full text-xs shadow-2xs">
+                  <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                  결제 완료 (정상 승인)
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">신청 플랜</span>
+                <span className="font-bold text-gray-900">{planNames[planType] || planType}</span>
+              </div>
               {dbOrderId && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">주문번호</span>
-                  <span className="font-bold text-gray-800">#{dbOrderId}</span>
+                  <span className="font-mono font-bold text-gray-800">#{dbOrderId}</span>
                 </div>
               )}
               {paymentMethod && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">결제수단</span>
                   <span className="font-bold text-gray-800">{paymentMethod}</span>
                 </div>
               )}
               {paidAmount && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">결제금액</span>
-                  <span className="font-bold text-gray-800">{paidAmount}</span>
+                  <span className="font-extrabold text-pink-600">{paidAmount}</span>
                 </div>
               )}
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">결제일시</span>
+                <span className="text-xs text-gray-600 font-medium">
+                  {new Date().toLocaleString("ko-KR", { dateStyle: "medium", timeStyle: "short" })}
+                </span>
+              </div>
               {receiptUrl && (
                 <div className="pt-2 border-t border-gray-200">
                   <a
