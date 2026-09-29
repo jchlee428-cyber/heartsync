@@ -1,11 +1,13 @@
 import { ArrowLeft, Building2, MapPin, Phone, Mail, FileText, Shield, Heart, Users, Award, ExternalLink } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 
 const companyInfo = {
   name: "주식회사 레드뱅크",
   ceo: "이종철",
   registrationNumber: "132-86-23186",
+  telecomRegistration: "제2016-서울송파-0856호",
   address: "서울특별시 송파구 문정로 246, 2호 (마천동, 사회적경제센터 1-1)",
   phone: "1599-9573",
   email: "vikin@hanmail.net",
@@ -120,6 +122,7 @@ export default function AboutPage() {
             <InfoRow icon={Building2} label="회사명" value={companyInfo.name} />
             <InfoRow icon={Users} label="대표자" value={companyInfo.ceo} />
             <InfoRow icon={FileText} label="사업자등록번호" value={companyInfo.registrationNumber} />
+            <InfoRow icon={FileText} label="통신판매업신고번호" value={companyInfo.telecomRegistration} />
             <InfoRow icon={MapPin} label="소재지" value={companyInfo.address} />
             <InfoRow icon={Phone} label="전화번호" value={companyInfo.phone} />
             <InfoRow icon={Mail} label="이메일" value={companyInfo.email} />
@@ -216,6 +219,9 @@ export default function AboutPage() {
           </div>
         </section>
       </main>
+
+      {/* PG 심사 승인 요건 준수 Footer */}
+      <Footer className="pb-28" />
 
       <BottomNav />
     </div>

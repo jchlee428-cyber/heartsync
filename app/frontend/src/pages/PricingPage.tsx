@@ -26,6 +26,7 @@ import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import LoginModal from "@/components/LoginModal";
 import GiftModal from "@/components/GiftModal";
+import Footer from "@/components/Footer";
 
 const client = createClient();
 
@@ -699,6 +700,9 @@ export default function PricingPage() {
         }}
         initialPlanId={giftInitialPlan}
       />
+
+      {/* PG 심사 승인 요건 준수 Footer */}
+      <Footer className="pb-28 mt-8" />
 
       <BottomNav />
     </div>

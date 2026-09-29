@@ -9,6 +9,7 @@ import BlurPaywallSection from "@/components/BlurPaywallSection";
 import PartnerInviteModal from "@/components/PartnerInviteModal";
 import DailyRoutineCard from "@/components/DailyRoutineCard";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
+import Footer from "@/components/Footer";
 
 const client = createClient();
 
@@ -1329,14 +1330,22 @@ export default function ResultPage() {
               ))}
             </div>
 
-            {/* PDF Footer */}
-            <div style={{ textAlign: "center", borderTop: "2px solid #f3f4f6", paddingTop: "20px", marginTop: "20px" }}>
-              <div style={{ fontSize: "12px", color: "#ec4899", fontWeight: 700, marginBottom: "4px" }}>💕 HeartSync</div>
-              <div style={{ fontSize: "10px", color: "#9ca3af" }}>
-                본 리포트는 AI 분석 결과이며, 전문 상담을 대체하지 않습니다.
+            {/* PDF Footer with Legal & Business Compliance */}
+            <div style={{ textAlign: "center", borderTop: "2px solid #e5e7eb", paddingTop: "20px", marginTop: "24px" }}>
+              <div style={{ fontSize: "13px", color: "#ec4899", fontWeight: 700, marginBottom: "6px" }}>💕 HeartSync 관계 심층 진단 솔루션</div>
+              
+              {/* Medical / Psychological Counseling Legal Disclaimer */}
+              <div style={{ backgroundColor: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: "8px", padding: "10px 14px", margin: "10px 0", fontSize: "10px", color: "#4b5563", lineHeight: 1.6 }}>
+                <strong>[법적 고지 및 의료 면책 조항]</strong><br />
+                본 진단 및 AI 코칭은 임상 심리학적 치료나 정신건강의학과 전문의의 의료 진단 행위를 대체하지 않으며, 관계 개선을 돕기 위한 코칭 가이드 목적의 콘텐츠입니다.
               </div>
-              <div style={{ fontSize: "10px", color: "#d1d5db", marginTop: "4px" }}>
-                가트맨 이론 · 애착 이론 · EFT · CBT · deepseek-v3.2
+
+              <div style={{ fontSize: "9px", color: "#9ca3af", lineHeight: 1.6, marginTop: "8px" }}>
+                주식회사 레드뱅크 | 대표: 이종철 | 사업자등록번호: 132-86-23186 | 통신판매업신고: 제2016-서울송파-0856호<br />
+                사업장 주소: 서울특별시 송파구 문정로 246, 2호 (마천동, 사회적경제센터 1-1) | 고객센터: 1599-9573 | vikin@hanmail.net
+              </div>
+              <div style={{ fontSize: "9px", color: "#d1d5db", marginTop: "6px" }}>
+                가트맨 이론 · 애착 이론 · EFT · CBT · deepseek-v3.2 기반 AI 심리 분석 리포트
               </div>
             </div>
           </div>
@@ -1349,6 +1358,9 @@ export default function ResultPage() {
           myDiagnosisId={id}
           myScore={totalScore}
         />
+
+        {/* ── Website Footer for PG Compliance ── */}
+        <Footer className="pb-28 mt-12" />
       </main>
     </div>
   );

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Shield } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 
 export default function PrivacyPage() {
   const navigate = useNavigate();
@@ -178,9 +179,12 @@ export default function PrivacyPage() {
             <h2 className="text-base font-bold text-gray-900 mb-2">제10조 (개인정보 보호 책임자)</h2>
             <div className="text-sm text-gray-600 leading-relaxed">
               <p className="mb-2">개인정보 처리에 관한 불만이나 문의사항이 있으시면 아래로 연락해주세요:</p>
-              <div className="bg-gray-50 rounded-lg p-4 space-y-1.5">
-                <p><span className="font-medium text-gray-700">담당:</span> 개인정보 보호 책임자</p>
-                <p><span className="font-medium text-gray-700">이메일:</span> privacy@heartsync.kr</p>
+              <div className="bg-gray-50 rounded-lg p-4 space-y-1.5 text-xs">
+                <p><span className="font-semibold text-gray-700">성명:</span> 이종철 (개인정보 보호 책임자)</p>
+                <p><span className="font-semibold text-gray-700">소속:</span> 주식회사 레드뱅크</p>
+                <p><span className="font-semibold text-gray-700">고객센터:</span> 1599-9573</p>
+                <p><span className="font-semibold text-gray-700">문의 이메일:</span> vikin@hanmail.net</p>
+                <p><span className="font-semibold text-gray-700">사업장 주소:</span> 서울특별시 송파구 문정로 246, 2호 (마천동, 사회적경제센터 1-1)</p>
               </div>
             </div>
           </section>
@@ -195,11 +199,12 @@ export default function PrivacyPage() {
 
           <div className="pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400 text-center">
-              시행일: 2024년 1월 1일
+              시행일: 2024년 1월 1일 (최근 개정: 2026년 3월 29일)
             </p>
           </div>
         </div>
       </div>
+      <Footer className="pb-28 mt-4" />
       <BottomNav />
     </div>
   );

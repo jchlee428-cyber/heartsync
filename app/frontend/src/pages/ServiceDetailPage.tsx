@@ -2,6 +2,7 @@ import { ArrowLeft, ArrowRight, Heart, Shield, Brain, MessageSquare, FileText, S
 import { useNavigate } from "react-router-dom";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 
 const HERO_IMAGE = "https://mgx-backend-cdn.metadl.com/generate/images/922264/2026-03-12/455930b8-16a1-4334-8961-f2e16ae2fa9f.png";
 const COUPLE_CARE_IMAGE = "https://mgx-backend-cdn.metadl.com/generate/images/922264/2026-03-12/89d25058-e6b2-4faa-8167-301e3f416fe9.png";
@@ -431,6 +432,8 @@ export default function ServiceDetailPage() {
         </section>
       </div>
 
+      {/* Footer for Legal & Business Compliance */}
+      <Footer className="pb-28 mt-4" />
       <BottomNav />
     </div>
   );

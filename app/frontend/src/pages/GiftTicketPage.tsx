@@ -4,6 +4,7 @@ import { Heart, Sparkles, Gift, ArrowRight, Share2, Copy, Check, Shield, Calenda
 import confetti from "canvas-confetti";
 import { toast } from "sonner";
 import Header from "@/components/Header";
+import Footer from "@/components/Footer";
 
 interface GiftTicketData {
   ticketId: string;
@@ -224,10 +225,8 @@ export default function GiftTicketPage() {
           </div>
         </div>
 
-        {/* Footer info */}
-        <p className="text-center text-[11px] text-gray-400">
-          HeartSync · 심리학 연구 기반 AI 커플 진단 &amp; 케어 솔루션
-        </p>
+        {/* Footer for Legal & Business Compliance */}
+        <Footer className="pb-16 mt-8" />
       </main>
     </div>
   );

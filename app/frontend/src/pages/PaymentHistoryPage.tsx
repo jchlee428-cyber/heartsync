@@ -5,6 +5,7 @@ import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 
 const client = createClient();
 
@@ -373,6 +374,8 @@ export default function PaymentHistoryPage() {
         </div>
       </div>
 
+      {/* Footer for Legal & Business Compliance */}
+      <Footer className="pb-28 mt-4" />
       <BottomNav />
     </div>
   );

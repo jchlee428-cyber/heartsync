@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, FileText } from "lucide-react";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import Footer from "@/components/Footer";
 
 export default function TermsPage() {
   const navigate = useNavigate();
@@ -148,13 +149,18 @@ export default function TermsPage() {
           </section>
 
           {/* 제10조 */}
-          <section>
-            <h2 className="text-base font-bold text-gray-900 mb-2">제10조 (면책조항)</h2>
-            <ul className="text-sm text-gray-600 leading-relaxed space-y-1.5 list-disc list-inside">
-              <li>서비스가 제공하는 진단 결과 및 AI 분석은 참고용이며, 전문적인 심리 상담이나 치료를 대체하지 않습니다.</li>
-              <li>이용자가 서비스를 통해 얻은 정보에 대한 최종 판단과 책임은 이용자에게 있습니다.</li>
-              <li>서비스는 이용자 간 또는 이용자와 제3자 간의 분쟁에 대해 책임지지 않습니다.</li>
-            </ul>
+          <section className="bg-amber-50/60 rounded-xl p-4 -mx-1 border border-amber-200/70">
+            <h2 className="text-base font-bold text-gray-900 mb-2">제10조 (의료법 및 심리상담 면책조항)</h2>
+            <div className="text-sm text-gray-700 leading-relaxed space-y-2">
+              <p className="font-extrabold text-amber-950">
+                "본 진단 및 AI 코칭은 임상 심리학적 치료나 정신건강의학과 전문의의 의료 진단 행위를 대체하지 않으며, 관계 개선을 돕기 위한 코칭 가이드 목적의 콘텐츠입니다."
+              </p>
+              <ul className="text-xs text-gray-600 space-y-1 list-disc list-inside">
+                <li>서비스가 제공하는 모든 분석과 솔루션은 이용자의 주관적 응답에 기반한 통계적·심리학적 참고 자료입니다.</li>
+                <li>심각한 우울, 불안, 가정폭력, 정신과적 위기 상황의 경우 반드시 전문 의료기관이나 공인된 전문 상담사의 진료를 받으셔야 합니다.</li>
+                <li>이용자가 서비스를 통해 얻은 조언에 대한 최종 판단과 행동의 책임은 이용자 본인에게 있습니다.</li>
+              </ul>
+            </div>
           </section>
 
           {/* 제11조 */}
@@ -172,6 +178,10 @@ export default function TermsPage() {
           </div>
         </div>
       </div>
+
+      {/* PG 심사 승인 요건 준수 Footer */}
+      <Footer className="pb-28 mt-8" />
+
       <BottomNav />
     </div>
   );

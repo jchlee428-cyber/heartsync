@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import LoginModal from "@/components/LoginModal";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 import DailyRoutineCard from "@/components/DailyRoutineCard";
+import Footer from "@/components/Footer";
 
 const client = createClient();
 
@@ -1284,6 +1285,9 @@ export default function MyPage() {
             새 진단 시작하기
           </button>
         </div>
+
+        {/* Footer for Legal & Business Compliance */}
+        <Footer className="pb-16 mt-12" />
       </main>
 
       {/* Delete Confirmation Modal */}
