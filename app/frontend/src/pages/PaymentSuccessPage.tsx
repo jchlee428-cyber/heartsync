@@ -62,6 +62,20 @@ export default function PaymentSuccessPage() {
 
     if (isStripe && sessionId) {
       confirmStripePayment();
+    } else if (searchParams.get("simulated") === "true") {
+      // Mock / Direct return from simulated test payment
+      setStatus("success");
+      const paramPlan = searchParams.get("plan_type") || "single_analysis";
+      setPlanType(paramPlan);
+      setPaymentMethod("가상 테스트 결제 (시뮬레이션)");
+      setPaidAmount("₩0 (테스트 체험)");
+      const diagId = searchParams.get("diagnosis_id") || localStorage.getItem("heartsync_pending_diagnosis_id");
+      if (diagId) {
+        setDiagnosisId(diagId);
+        startCountdown(diagId);
+      } else {
+        tryFetchLatestDiagnosis();
+      }
     } else if (paymentKey && orderId && amount) {
       confirmTossPayment();
     } else if (giftTicketId) {

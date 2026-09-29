@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import LoginModal from "@/components/LoginModal";
 import GiftModal from "@/components/GiftModal";
 import Footer from "@/components/Footer";
+import TestPaymentModal from "@/components/TestPaymentModal";
 
 const client = createClient();
 
@@ -147,6 +148,9 @@ export default function PricingPage() {
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [giftInitialPlan, setGiftInitialPlan] = useState<string>("monthly_subscription");
   const [activeTab, setActiveTab] = useState<"self" | "gift">("self");
+  const [testModalPlan, setTestModalPlan] = useState<Plan | null>(null);
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [enableVirtualTest, setEnableVirtualTest] = useState(true);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -303,6 +307,19 @@ export default function PricingPage() {
   };
 
   const handlePurchase = async (planId: string) => {
+    if (!user) {
+      toast.info("로그인이 필요합니다");
+      setIsLoginModalOpen(true);
+      return;
+    }
+
+    const selectedPlan = plans.find((p) => p.id === planId);
+    if (enableVirtualTest && selectedPlan) {
+      setTestModalPlan(selectedPlan);
+      setIsTestModalOpen(true);
+      return;
+    }
+
     if (paymentProvider === "stripe") {
       await handlePurchaseStripe(planId);
     } else {
@@ -395,6 +412,48 @@ export default function PricingPage() {
             <Gift className="w-4 h-4 text-pink-500 animate-bounce" />
             <span>🎁 연인에게 선물하기 (100일/1주년)</span>
           </button>
+        </div>
+
+        {/* ── Test Mode Interactive Control Banner ── */}
+        <div className="bg-gradient-to-r from-amber-50 via-pink-50 to-purple-50 rounded-2xl p-4 border border-amber-200 shadow-sm mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start sm:items-center gap-2.5">
+              <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm font-black flex-shrink-0">
+                🧪
+              </span>
+              <div>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-xs font-bold text-gray-900">
+                    사전 점검 및 피드백용 테스트 결제 모드
+                  </span>
+                  <span className="text-[10px] bg-amber-200 text-amber-900 font-extrabold px-1.5 py-0.5 rounded-full">
+                    토스 심사 중 활성화
+                  </span>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-0.5">
+                  실제 카드 청구 없이 <strong>1초 가상 결제</strong>로 리포트 전체 열람 및 <strong>PDF 다운로드</strong>를 즉시 시뮬레이션할 수 있습니다.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  const nextState = !enableVirtualTest;
+                  setEnableVirtualTest(nextState);
+                  toast.info(nextState ? "가상 결제 모드가 켜졌습니다 (과금 0원)" : "토스 결제창 모드가 켜졌습니다");
+                }}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  enableVirtualTest
+                    ? "bg-gray-900 text-white shadow-xs"
+                    : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                }`}
+              >
+                <span>{enableVirtualTest ? "✓ 1초 가상결제 ON" : "가상결제 OFF"}</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* ── 2번 개선: 국내 2040 최선호 간편결제 공식 뱃지 배너 ── */}
@@ -700,6 +759,29 @@ export default function PricingPage() {
         }}
         initialPlanId={giftInitialPlan}
       />
+
+      {/* Test Payment Modal */}
+      {testModalPlan && (
+        <TestPaymentModal
+          isOpen={isTestModalOpen}
+          onClose={() => setIsTestModalOpen(false)}
+          planId={testModalPlan.id}
+          planName={testModalPlan.name}
+          amount={testModalPlan.priceNum}
+          diagnosisId={localStorage.getItem("heartsync_pending_diagnosis_id") || undefined}
+          onSuccess={(result) => {
+            setIsTestModalOpen(false);
+            const diagId = result.diagnosis_id || localStorage.getItem("heartsync_pending_diagnosis_id");
+            navigate(
+              `/payment-success?paymentKey=${result.toss_payment_key || "sim_test"}&orderId=${result.db_order_id || "TEST-SIM"}&amount=0&simulated=true${diagId ? `&diagnosis_id=${diagId}` : ""}`
+            );
+          }}
+          onLaunchTossRealTest={() => {
+            setIsTestModalOpen(false);
+            handlePurchaseToss(testModalPlan.id);
+          }}
+        />
+      )}
 
       {/* PG 심사 승인 요건 준수 Footer */}
       <Footer className="pb-28 mt-8" />

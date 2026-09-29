@@ -21,6 +21,7 @@ from dependencies.auth import get_current_user
 from schemas.auth import UserResponse
 from services.payment import (
     PaymentConfirmRequest,
+    PaymentConfirmResponse,
     TossPaymentError,
     TossPaymentService,
     get_toss_client_key,
@@ -91,6 +92,12 @@ class ConfirmPaymentRequest(BaseModel):
     payment_key: str
     order_id: str
     amount: int
+
+
+class SimulatePaymentRequest(BaseModel):
+    plan_type: str = "single_analysis"
+    diagnosis_id: Optional[str] = None
+    payment_method: Optional[str] = "가상 테스트 결제 (시뮬레이션)"
 
 
 class ConfirmPaymentResponse(BaseModel):
@@ -215,14 +222,32 @@ async def confirm_payment(
             logger.error(f"Amount mismatch: order={order.amount}, request={data.amount}")
             raise HTTPException(status_code=400, detail="결제 금액이 일치하지 않습니다")
 
-        # 3. Confirm payment with Toss API
-        payment_service = TossPaymentService()
-        confirm_request = PaymentConfirmRequest(
-            payment_key=data.payment_key,
-            order_id=data.order_id,
-            amount=data.amount,
+        # 3. Confirm payment (handle simulated test payment vs Toss API)
+        is_simulated = (
+            data.payment_key.startswith("sim_")
+            or data.order_id.startswith("TEST-SIM-")
+            or data.order_id.startswith("SIM-")
         )
-        result = await payment_service.confirm_payment(confirm_request)
+
+        if is_simulated:
+            logger.info(f"Processing simulated test payment: order_id={data.order_id}")
+            result = PaymentConfirmResponse(
+                payment_key=data.payment_key,
+                order_id=data.order_id,
+                status="DONE",
+                total_amount=data.amount,
+                method="가상 테스트 결제 (시뮬레이션)",
+                approved_at=datetime.now().isoformat(),
+                receipt_url="/payment-history",
+            )
+        else:
+            payment_service = TossPaymentService()
+            confirm_request = PaymentConfirmRequest(
+                payment_key=data.payment_key,
+                order_id=data.order_id,
+                amount=data.amount,
+            )
+            result = await payment_service.confirm_payment(confirm_request)
 
         # 4. Update order status
         now = datetime.now()
@@ -277,6 +302,76 @@ async def confirm_payment(
     except Exception as e:
         logger.error(f"Unexpected payment confirmation error: {e}")
         raise HTTPException(status_code=400, detail=f"결제 확인 중 오류가 발생했습니다: {str(e)}")
+
+
+@router.post("/simulate_payment", response_model=ConfirmPaymentResponse)
+async def simulate_payment(
+    data: SimulatePaymentRequest,
+    current_user: UserResponse = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Simulate a test payment for demonstration / review testing without charging real money.
+    
+    Creates a paid order and activates the requested plan immediately.
+    """
+    try:
+        plan_type = data.plan_type
+        if plan_type not in PLANS:
+            plan_type = "single_analysis"
+
+        plan = PLANS[plan_type]
+        now = datetime.now()
+        sim_order_id = f"SIM-{plan_type}-{uuid.uuid4().hex[:10]}"
+        sim_payment_key = f"sim_pk_{uuid.uuid4().hex[:16]}"
+
+        orders_service = OrdersService(db)
+        order = await orders_service.create(
+            data={
+                "plan_type": plan_type,
+                "plan_name": plan["name"],
+                "amount": plan["amount"],
+                "currency": plan["currency"],
+                "status": "paid",
+                "toss_order_id": sim_order_id,
+                "toss_payment_key": sim_payment_key,
+                "created_at": now,
+                "updated_at": now,
+            },
+            user_id=current_user.id,
+        )
+
+        # Activate plan
+        days = plan.get("days", 30)
+        analyses = plan.get("analyses", 1)
+        expires_at = now + timedelta(days=days)
+
+        plans_service = User_plansService(db)
+        await plans_service.create(
+            data={
+                "plan_type": plan_type,
+                "analyses_remaining": analyses,
+                "expires_at": expires_at,
+                "is_active": True,
+                "order_id": order.id,
+                "created_at": now,
+                "updated_at": now,
+            },
+            user_id=current_user.id,
+        )
+
+        logger.info(f"Simulated payment success: user={current_user.id}, plan={plan_type}, order={order.id}")
+
+        return ConfirmPaymentResponse(
+            status="paid",
+            db_order_id=order.id,
+            plan_type=plan_type,
+            payment_method=data.payment_method or "가상 테스트 결제 (시뮬레이션)",
+            receipt_url="/payment-history",
+            diagnosis_id=data.diagnosis_id,
+        )
+    except Exception as e:
+        logger.error(f"Simulated payment error: {e}")
+        raise HTTPException(status_code=400, detail=f"가상 결제 처리 중 오류가 발생했습니다: {str(e)}")
 
 
 @router.get("/my-plan", response_model=UserPlanResponse)

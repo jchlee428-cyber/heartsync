@@ -487,6 +487,7 @@ export default function ResultPage() {
   const [hasPaidPlan, setHasPaidPlan] = useState(false);
   const [checkingPlan, setCheckingPlan] = useState(true);
   const [isInviteModalOpen, setIsInviteModalOpen] = useState(false);
+  const [isSimulating, setIsSimulating] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);
   const pdfContentRef = useRef<HTMLDivElement>(null);
   const fullReportRef = useRef("");
@@ -518,6 +519,34 @@ export default function ResultPage() {
       // Default to free
     } finally {
       setCheckingPlan(false);
+    }
+  };
+
+  const handleSimulatedUnlock = async () => {
+    setIsSimulating(true);
+    try {
+      const res = await client.apiCall.invoke({
+        url: "/api/v1/payment/simulate_payment",
+        method: "POST",
+        data: {
+          plan_type: "single_analysis",
+          diagnosis_id: id,
+          payment_method: "가상 테스트 결제 (1초 잠금해제)",
+        },
+      });
+
+      if (res.data?.status === "paid") {
+        setHasPaidPlan(true);
+        toast.success("가상 결제가 승인되어 전체 리포트와 PDF 다운로드가 잠금 해제되었습니다! (과금 0원)");
+        if (diagnosis && !aiReport) {
+          generateReport(diagnosis);
+        }
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error("가상 결제 처리 중 오류가 발생했습니다.");
+    } finally {
+      setIsSimulating(false);
     }
   };
 
@@ -960,18 +989,62 @@ export default function ResultPage() {
         {/* ============================================ */}
 
         {!canSeeFullReport ? (
-          /* FREE USER: Show Blur Paywall (Conversion Booster) */
-          <BlurPaywallSection
-            totalScore={totalScore}
-            scores={scores}
-            weakestArea={weakestArea}
-            diagnosisId={id || ""}
-            onUnlock={() => {
-              if (id) localStorage.setItem("heartsync_pending_diagnosis_id", id);
-              navigate("/pricing");
-            }}
-            onInvitePartner={() => setIsInviteModalOpen(true)}
-          />
+          <>
+            {/* ── Test Simulation Header Banner ── */}
+            <div className="mt-8 bg-gradient-to-r from-amber-50 via-pink-50 to-purple-50 rounded-2xl p-4 border border-amber-200 shadow-sm">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm font-black flex-shrink-0">
+                    🧪
+                  </span>
+                  <div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-gray-900">
+                        사전 점검 및 피드백용 테스트 모드
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full">
+                        과금 0원
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-600 mt-0.5">
+                      토스 심사 중 실제 과금 없이 1초만에 리포트 잠금 해제와 <strong>PDF 다운로드</strong>를 테스트해보세요.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleSimulatedUnlock}
+                  disabled={isSimulating}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-extrabold text-xs shadow-md shadow-pink-200 active:scale-95 transition-all flex items-center justify-center gap-1.5 flex-shrink-0 disabled:opacity-50"
+                >
+                  {isSimulating ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>잠금 해제 중...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                      <span>1초 가상 결제로 즉시 체험</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* FREE USER: Show Blur Paywall (Conversion Booster) */}
+            <BlurPaywallSection
+              totalScore={totalScore}
+              scores={scores}
+              weakestArea={weakestArea}
+              diagnosisId={id || ""}
+              onUnlock={() => {
+                if (id) localStorage.setItem("heartsync_pending_diagnosis_id", id);
+                navigate("/pricing");
+              }}
+              onSimulatedUnlock={handleSimulatedUnlock}
+              onInvitePartner={() => setIsInviteModalOpen(true)}
+            />
+          </>
         ) : (
           /* PAID USER: Show full AI report and actions */
           <>
