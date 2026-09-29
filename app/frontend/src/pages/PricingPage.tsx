@@ -162,54 +162,58 @@ export default function PricingPage() {
 
   const getEffectiveUser = () => {
     if (user) return user;
-    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
-    const token = localStorage.getItem("token");
-    if (!token || isLoggedOut) return null;
+    try {
+      const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+      const token = localStorage.getItem("token");
+      if (!token || isLoggedOut) return null;
 
-    const cached = localStorage.getItem("user");
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached);
-        setUser(parsed);
-        return parsed;
-      } catch {}
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch {}
+      }
+      return { name: "회원", role: "user" };
+    } catch {
+      return null;
     }
-    const fallbackUser = { name: "회원", role: "user" };
-    setUser(fallbackUser);
-    return fallbackUser;
   };
 
   const checkAuth = async () => {
-    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
-    const token = localStorage.getItem("token");
-    if (!token || isLoggedOut) {
-      setUser(null);
-      return;
-    }
+    try {
+      const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+      const token = localStorage.getItem("token");
+      if (!token || isLoggedOut) {
+        setUser(null);
+        return;
+      }
 
-    // Immediately restore cached user to avoid any UI flash or delay
-    const cached = localStorage.getItem("user");
-    if (cached) {
-      try {
-        setUser(JSON.parse(cached));
-      } catch {
+      // Immediately restore cached user to avoid any UI flash or delay
+      const cached = localStorage.getItem("user");
+      if (cached) {
+        try {
+          setUser(JSON.parse(cached));
+        } catch {
+          setUser({ name: "회원", role: "user" });
+        }
+      } else {
         setUser({ name: "회원", role: "user" });
       }
-    } else {
-      setUser({ name: "회원", role: "user" });
-    }
 
-    try {
-      const res = await client.auth.me();
-      if (res?.data) {
-        setUser(res.data);
-        localStorage.setItem("user", JSON.stringify(res.data));
+      try {
+        const res = await client.auth.me();
+        if (res?.data) {
+          setUser(res.data);
+          localStorage.setItem("user", JSON.stringify(res.data));
+        }
+      } catch {
+        // Backend cold-starting or offline; keep cached session
       }
-    } catch {
-      // Backend cold-starting or offline; keep cached session
-    }
 
-    fetchCurrentPlan();
+      fetchCurrentPlan();
+    } catch (e) {
+      console.warn("Auth initialization warning:", e);
+    }
   };
 
   const checkTossStatus = async () => {

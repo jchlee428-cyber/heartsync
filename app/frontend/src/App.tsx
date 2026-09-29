@@ -25,6 +25,7 @@ import AdminUsersPage from './pages/admin/AdminUsersPage';
 import AdminUserActivityPage from './pages/admin/AdminUserActivityPage';
 import AdminSettingsPage from './pages/admin/AdminSettingsPage';
 import LoginPage from './pages/LoginPage';
+import ErrorBoundary from './components/ErrorBoundary';
 // MODULE_IMPORTS_START
 // MODULE_IMPORTS_END
 
@@ -34,9 +35,10 @@ const App = () => (
   <QueryClientProvider client={queryClient}>
     {/* MODULE_PROVIDERS_START */}
     {/* MODULE_PROVIDERS_END */}
-    <TooltipProvider>
-      <Toaster />
-      <BrowserRouter>
+    <ErrorBoundary>
+      <TooltipProvider>
+        <Toaster />
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
@@ -69,6 +71,7 @@ const App = () => (
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
+    </ErrorBoundary>
     {/* MODULE_PROVIDERS_CLOSE */}
   </QueryClientProvider>
 );
