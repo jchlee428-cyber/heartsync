@@ -7,6 +7,8 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import BlurPaywallSection from "@/components/BlurPaywallSection";
 import PartnerInviteModal from "@/components/PartnerInviteModal";
+import DailyRoutineCard from "@/components/DailyRoutineCard";
+import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 
 const client = createClient();
 
@@ -947,6 +949,11 @@ export default function ResultPage() {
           })}
         </div>
 
+        {/* ── Daily Routine & Kakao Alimtalk Retention (D+1, D+7, D+30) ── */}
+        <div className="mt-6">
+          <DailyRoutineCard latestScore={totalScore} />
+        </div>
+
         {/* ============================================ */}
         {/* PAYWALL GATE: Free vs Paid content below here */}
         {/* ============================================ */}
@@ -1092,6 +1099,11 @@ export default function ResultPage() {
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* ── Relationship Time-series Trend Tracker ── */}
+            <div className="mt-8">
+              <RelationshipTrendTracker />
             </div>
 
             {/* Action Buttons */}

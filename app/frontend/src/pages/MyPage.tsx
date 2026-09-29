@@ -4,6 +4,8 @@ import { ArrowLeft, Heart, LogOut, FileText, Calendar, ChevronRight, User, Refre
 import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import LoginModal from "@/components/LoginModal";
+import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
+import DailyRoutineCard from "@/components/DailyRoutineCard";
 
 const client = createClient();
 
@@ -654,6 +656,19 @@ export default function MyPage() {
             )}
           </div>
         )}
+
+        {/* ── Daily Routine & Alimtalk Retention Card ── */}
+        <div className="mt-6">
+          <DailyRoutineCard
+            partnerName={user?.name ? "연인" : "파트너"}
+            latestScore={diagnoses[0]?.total_score || 168}
+          />
+        </div>
+
+        {/* ── Relationship Time-series Trend Tracker ── */}
+        <div className="mt-6">
+          <RelationshipTrendTracker />
+        </div>
 
         {/* Diagnosis History */}
         {user && (
