@@ -90,8 +90,8 @@ class Settings(BaseSettings):
             logger.debug(f"Read dynamic attribute {name} from environment variable {env_var_name}")
             return value
 
-        # If not found, raise AttributeError to maintain normal Python behavior
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
+        # If not found, return empty string to prevent crashes in production
+        return ""
 
 
 # Global settings instance
