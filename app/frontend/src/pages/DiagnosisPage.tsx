@@ -327,6 +327,10 @@ export default function DiagnosisPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const isFreshStart = searchParams.get("fresh") === "true";
+  const inviteFrom = searchParams.get("invite_from");
+  const partnerName = searchParams.get("partner_name");
+  const diagId = searchParams.get("diag_id");
+  const giftTicket = searchParams.get("gift_ticket");
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1109,6 +1113,49 @@ export default function DiagnosisPage() {
       </header>
 
       <main className="pt-20 pb-40 px-4 sm:px-5 max-w-lg mx-auto" id="main-content" aria-label="관계 진단 설문">
+        {/* ── Partner Invitation Reception Banner (Viral Loop) ── */}
+        {inviteFrom && (
+          <div className="mb-5 p-4 bg-gradient-to-r from-pink-50 via-rose-50 to-purple-50 border-2 border-pink-200 rounded-2xl shadow-sm flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm mt-0.5">
+              <Heart className="w-5 h-5 fill-white text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-xs font-black text-pink-700">💌 커플 매칭 초대 진단</span>
+                <span className="px-1.5 py-0.2 bg-pink-200/70 text-pink-800 text-[9px] font-bold rounded-full">
+                  100% 무료
+                </span>
+              </div>
+              <p className="text-[13px] font-bold text-gray-800 leading-snug">
+                <span className="text-pink-600 font-black">{inviteFrom}</span>님이 {partnerName ? `${partnerName}님과의` : "당신과의"} 관계 진단에 초대했습니다!
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                답변을 완료하시면 두 사람의 솔직한 시선 차이와 듀얼 싱크로율 리포트가 즉시 매칭됩니다.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* ── Gift Ticket Banner ── */}
+        {giftTicket && !inviteFrom && (
+          <div className="mb-5 p-4 bg-gradient-to-r from-amber-50 via-pink-50 to-rose-50 border-2 border-pink-200 rounded-2xl shadow-sm flex items-start gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-amber-500 flex items-center justify-center text-white flex-shrink-0 shadow-sm mt-0.5">
+              <Sparkles className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className="text-xs font-black text-pink-700">🎁 연인 선물 티켓 적용됨</span>
+                <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 text-[9px] font-bold rounded-full">
+                  전액 결제 완료
+                </span>
+              </div>
+              <p className="text-[13px] font-bold text-gray-800 leading-snug">
+                선물받은 VIP 커플 패스로 전액 무료 진단이 진행됩니다.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Draft restored banner */}
         {wasRestored && answeredCount > 0 && answeredCount < totalQuestions && (
           <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-xl flex items-center gap-3">

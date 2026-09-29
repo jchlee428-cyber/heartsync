@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { createClient } from "@metagptx/web-sdk";
-import { CheckCircle, XCircle, Loader2, ArrowRight, Home, Sparkles } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, Home, Sparkles, Gift, Copy, Check, MessageCircle } from "lucide-react";
+import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 
@@ -15,6 +16,7 @@ export default function PaymentSuccessPage() {
   const paymentKey = searchParams.get("paymentKey");
   const orderId = searchParams.get("orderId");
   const amount = searchParams.get("amount");
+  const giftTicketId = searchParams.get("gift_ticket_id");
 
   // Stripe params
   const sessionId = searchParams.get("session_id");
@@ -31,6 +33,8 @@ export default function PaymentSuccessPage() {
   const [countdown, setCountdown] = useState(5);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [paidAmount, setPaidAmount] = useState<string>("");
+  const [giftData, setGiftData] = useState<any>(null);
+  const [copiedGiftLink, setCopiedGiftLink] = useState(false);
   const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const planNames: Record<string, string> = {
@@ -42,10 +46,28 @@ export default function PaymentSuccessPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
 
+    if (giftTicketId) {
+      const stored = localStorage.getItem(`heartsync_gift_${giftTicketId}`) || localStorage.getItem("heartsync_latest_gift");
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          setGiftData(parsed);
+          localStorage.setItem(`heartsync_gift_ticket_${giftTicketId}`, stored);
+        } catch (e) {
+          console.error("Failed to parse gift data", e);
+        }
+      }
+    }
+
     if (isStripe && sessionId) {
       confirmStripePayment();
     } else if (paymentKey && orderId && amount) {
       confirmTossPayment();
+    } else if (giftTicketId) {
+      // Mock / Direct return from test gift payment
+      setStatus("success");
+      setPlanType("monthly_subscription");
+      setPaidAmount(amount ? `₩${Number(amount).toLocaleString()}` : "₩29,000");
     } else {
       setErrorMessage("결제 정보가 올바르지 않습니다. 다시 시도해주세요.");
       setStatus("failed");
@@ -76,12 +98,16 @@ export default function PaymentSuccessPage() {
         setReceiptUrl(res.data.receipt_url || null);
         setPaidAmount(amount ? `₩${Number(amount).toLocaleString()}` : "");
 
-        const diagId = res.data.diagnosis_id || localStorage.getItem("heartsync_pending_diagnosis_id");
-        if (diagId) {
-          setDiagnosisId(diagId);
-          startCountdown(diagId);
+        if (giftTicketId) {
+          // Gift ticket purchase completed - user will view/share their gift ticket!
         } else {
-          tryFetchLatestDiagnosis();
+          const diagId = res.data.diagnosis_id || localStorage.getItem("heartsync_pending_diagnosis_id");
+          if (diagId) {
+            setDiagnosisId(diagId);
+            startCountdown(diagId);
+          } else {
+            tryFetchLatestDiagnosis();
+          }
         }
       } else {
         setErrorMessage("결제 승인에 실패했습니다. 다시 시도해주세요.");
@@ -231,8 +257,62 @@ export default function PaymentSuccessPage() {
               )}
             </div>
 
+            {/* ── Gift Delivery Card ── */}
+            {giftTicketId && (
+              <div className="bg-gradient-to-br from-pink-50 via-rose-50 to-purple-50 rounded-3xl p-6 border-2 border-pink-200 text-left space-y-4 shadow-lg">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center text-white shadow-md flex-shrink-0">
+                    <Gift className="w-6 h-6 animate-bounce" />
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-pink-600 tracking-wider">
+                      HEARTSYNC VIP GIFT
+                    </span>
+                    <h3 className="text-base font-extrabold text-gray-900 leading-snug">
+                      {giftData?.recipientName || "연인"}님을 위한 모바일 러브레터 티켓 발급 완료!
+                    </h3>
+                  </div>
+                </div>
+
+                {giftData?.loveLetter && (
+                  <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-4 border border-pink-100 font-serif italic text-xs text-gray-700 leading-relaxed shadow-xs">
+                    "{giftData.loveLetter}"
+                  </div>
+                )}
+
+                <div className="space-y-2.5 pt-2">
+                  <button
+                    onClick={() => navigate(`/gift/${giftTicketId}`)}
+                    className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 hover:from-pink-600 hover:to-rose-700 text-white font-black text-sm shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 group"
+                  >
+                    <Gift className="w-4 h-4" />
+                    <span>발급된 모바일 선물 티켓 열기</span>
+                    <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
+
+                  <button
+                    onClick={async () => {
+                      const giftUrl = `${window.location.origin}/gift/${giftTicketId}`;
+                      try {
+                        await navigator.clipboard.writeText(giftUrl);
+                        setCopiedGiftLink(true);
+                        toast.success("선물 티켓 링크가 복사되었습니다!");
+                        setTimeout(() => setCopiedGiftLink(false), 2500);
+                      } catch {
+                        toast.error("링크 복사에 실패했습니다.");
+                      }
+                    }}
+                    className="w-full py-3 rounded-2xl bg-white border border-pink-200 hover:bg-pink-50 text-pink-600 font-bold text-xs flex items-center justify-center gap-2 transition-colors shadow-2xs"
+                  >
+                    {copiedGiftLink ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
+                    <span>{copiedGiftLink ? "선물 링크 복사됨!" : "선물 티켓 URL 복사하기"}</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Auto-redirect notice when diagnosis ID exists */}
-            {diagnosisId && (
+            {!giftTicketId && diagnosisId && (
               <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-5 border border-pink-100">
                 <div className="flex items-center justify-center gap-2 mb-3">
                   <Sparkles className="w-5 h-5 text-pink-500 animate-pulse" />

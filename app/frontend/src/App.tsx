@@ -15,6 +15,7 @@ import PaymentSuccessPage from './pages/PaymentSuccessPage';
 import PaymentHistoryPage from './pages/PaymentHistoryPage';
 import TermsPage from './pages/TermsPage';
 import PrivacyPage from './pages/PrivacyPage';
+import GiftTicketPage from './pages/GiftTicketPage';
 import NotFound from './pages/NotFound';
 import ServiceDetailPage from './pages/ServiceDetailPage';
 import AboutPage from './pages/AboutPage';
@@ -49,6 +50,7 @@ const App = () => (
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
           <Route path="/payment-history" element={<PaymentHistoryPage />} />
+          <Route path="/gift/:ticketId" element={<GiftTicketPage />} />
           <Route path="/service-detail" element={<ServiceDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
           <Route path="/terms" element={<TermsPage />} />

@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Gift,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
@@ -24,6 +25,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import { toast } from "sonner";
 import LoginModal from "@/components/LoginModal";
+import GiftModal from "@/components/GiftModal";
 
 const client = createClient();
 
@@ -141,6 +143,9 @@ export default function PricingPage() {
   const [stripeConfigured, setStripeConfigured] = useState(false);
   const [showRefundPolicy, setShowRefundPolicy] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
+  const [giftInitialPlan, setGiftInitialPlan] = useState<string>("monthly_subscription");
+  const [activeTab, setActiveTab] = useState<"self" | "gift">("self");
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -362,6 +367,35 @@ export default function PricingPage() {
           </p>
         </div>
 
+        {/* ── 탭 전환: 내 진단 결제하기 vs 연인에게 선물하기 ── */}
+        <div className="flex rounded-2xl bg-pink-100/70 p-1.5 mb-6 border border-pink-200/80 shadow-xs">
+          <button
+            onClick={() => setActiveTab("self")}
+            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === "self"
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
+          >
+            <Zap className="w-4 h-4 text-pink-500" />
+            <span>내 진단 결제하기</span>
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab("gift");
+              setIsGiftModalOpen(true);
+            }}
+            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === "gift"
+                ? "bg-white text-pink-600 shadow-sm"
+                : "text-pink-600 hover:text-pink-700"
+            }`}
+          >
+            <Gift className="w-4 h-4 text-pink-500 animate-bounce" />
+            <span>🎁 연인에게 선물하기 (100일/1주년)</span>
+          </button>
+        </div>
+
         {/* ── 2번 개선: 국내 2040 최선호 간편결제 공식 뱃지 배너 ── */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-pink-100/80 mb-6">
           <div className="flex items-center justify-between mb-2.5">
@@ -552,6 +586,19 @@ export default function PricingPage() {
                       <Shield className="w-3.5 h-3.5 text-emerald-600" />
                       <span>AI 리포트 생성 전 7일 이내 100% 전액 환불 보장</span>
                     </div>
+
+                    {/* ── 선물하기 버튼 (100일/1주년/기념일 선물) ── */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGiftInitialPlan(plan.id);
+                        setIsGiftModalOpen(true);
+                      }}
+                      className="w-full mt-3 py-3 rounded-2xl border-2 border-pink-200 bg-pink-50/60 hover:bg-pink-100/80 text-pink-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs"
+                    >
+                      <Gift className="w-4 h-4 text-pink-500" />
+                      <span>연인에게 이 플랜 선물하기 (모바일 러브레터 티켓 발송)</span>
+                    </button>
                   </div>
                 )}
               </div>
@@ -641,6 +688,16 @@ export default function PricingPage() {
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
         onSuccess={() => checkAuth()}
+      />
+
+      {/* Gift Modal (100일/1주년/기념일 선물) */}
+      <GiftModal
+        isOpen={isGiftModalOpen}
+        onClose={() => {
+          setIsGiftModalOpen(false);
+          setActiveTab("self");
+        }}
+        initialPlanId={giftInitialPlan}
       />
 
       <BottomNav />
