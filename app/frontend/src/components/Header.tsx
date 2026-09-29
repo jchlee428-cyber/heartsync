@@ -16,8 +16,11 @@ export default function Header() {
 
   const checkUser = async () => {
     try {
+      const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
       const token = localStorage.getItem("token");
-      if (!token) {
+      if (!token || isLoggedOut) {
+        localStorage.removeItem("user");
+        localStorage.removeItem("heartsync_user");
         setUser(null);
         setLoading(false);
         return;
@@ -34,14 +37,14 @@ export default function Header() {
         // Backend cold-starting or deploying, use cached user
       }
       const cached = localStorage.getItem("user");
-      if (cached) {
+      if (cached && token && !isLoggedOut) {
         try {
           setUser(JSON.parse(cached));
         } catch {
           setUser({ name: "회원", role: "user" });
         }
       } else {
-        setUser({ name: "회원", role: "user" });
+        setUser(null);
       }
     } catch {
       setUser(null);
@@ -61,10 +64,15 @@ export default function Header() {
       console.error(e);
     }
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("heartsync_user");
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("access_token");
     localStorage.setItem("isLougOutManual", "true");
     setUser(null);
     toast.success("로그아웃되었습니다.");
-    if (location.pathname === "/my") {
+    if (location.pathname === "/my" || location.pathname === "/mypage") {
       window.location.reload();
     }
   };

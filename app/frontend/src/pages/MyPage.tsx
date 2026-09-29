@@ -142,9 +142,23 @@ export default function MyPage() {
 
   const checkAuth = async () => {
     try {
+      const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
       const token = localStorage.getItem("token");
+
+      if (!token || isLoggedOut) {
+        // Explicitly logged out or no token: thoroughly clear auth cache
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("heartsync_user");
+        localStorage.removeItem("isLoggedIn");
+        setUser(null);
+        await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+        setLoading(false);
+        return;
+      }
+
       let currentUser: any = null;
-      if (token) {
+      if (token && !isLoggedOut) {
         try {
           const res = await client.auth.me();
           if (res?.data) {
@@ -155,7 +169,8 @@ export default function MyPage() {
           // Backend offline
         }
       }
-      if (!currentUser) {
+
+      if (!currentUser && token && !isLoggedOut) {
         const cached = localStorage.getItem("user");
         if (cached) {
           try {
@@ -163,11 +178,12 @@ export default function MyPage() {
           } catch {
             currentUser = { name: "회원", role: "user" };
           }
-        } else if (token) {
+        } else {
           currentUser = { name: "회원", role: "user" };
         }
       }
-      if (currentUser) {
+
+      if (currentUser && !isLoggedOut) {
         setUser(currentUser);
         await Promise.all([
           loadDiagnoses(),
@@ -184,11 +200,13 @@ export default function MyPage() {
           autoCleanupOldLogs();
         }
       } else {
+        setUser(null);
         await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
-        setLoading(false);
       }
     } catch {
+      setUser(null);
       await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+    } finally {
       setLoading(false);
     }
   };
@@ -605,10 +623,19 @@ export default function MyPage() {
     } catch (e) {
       console.error(e);
     }
+    // Thoroughly remove all auth tokens & cached user profiles
     localStorage.removeItem("token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("heartsync_user");
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("access_token");
     localStorage.setItem("isLougOutManual", "true");
+
     setUser(null);
-    setDiagnoses([]);
+    setNotifications([]);
+    setUnreadNotifCount(0);
+    await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
     toast.success("로그아웃되었습니다.");
   };
 

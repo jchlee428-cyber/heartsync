@@ -61,6 +61,17 @@ export default function PaymentHistoryPage() {
   }, []);
 
   const checkAuth = async () => {
+    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+    const token = localStorage.getItem("token");
+
+    if (!token || isLoggedOut) {
+      localStorage.removeItem("user");
+      setUser(null);
+      await Promise.all([loadOrders(), loadActivePlan()]).catch(() => {});
+      setLoading(false);
+      return;
+    }
+
     let currentUser: any = null;
     try {
       const res = await client.auth.me();
@@ -71,7 +82,7 @@ export default function PaymentHistoryPage() {
       // Backend offline or not logged in
     }
 
-    if (!currentUser) {
+    if (!currentUser && token && !isLoggedOut) {
       const cached = localStorage.getItem("user");
       if (cached) {
         try {
@@ -79,12 +90,12 @@ export default function PaymentHistoryPage() {
         } catch {
           currentUser = { name: "회원", role: "user" };
         }
-      } else if (localStorage.getItem("token")) {
+      } else {
         currentUser = { name: "회원", role: "user" };
       }
     }
 
-    if (currentUser) {
+    if (currentUser && !isLoggedOut) {
       setUser(currentUser);
     }
 

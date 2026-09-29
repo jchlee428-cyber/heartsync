@@ -46,6 +46,7 @@ const App = () => (
           <Route path="/result/:id" element={<ResultPage />} />
           <Route path="/chatbot" element={<ChatbotPage />} />
           <Route path="/my" element={<MyPage />} />
+          <Route path="/mypage" element={<MyPage />} />
           <Route path="/compare" element={<ComparePage />} />
           <Route path="/pricing" element={<PricingPage />} />
           <Route path="/payment-success" element={<PaymentSuccessPage />} />
