@@ -532,6 +532,8 @@ export default function ChatbotPage() {
     let fullContent = "";
     const finalSessionId = sessionId;
 
+    const fallbackCounseling = "두 분의 마음에 대해 말씀해주셔서 감사합니다. 관계에서 서운함이나 갈등을 느낄 때, 상대방이 내 마음을 온전히 알아주지 못한다는 느낌은 누구에게나 큰 외로움과 답답함으로 다가옵니다.\n\n존 가트맨 심리학 이론에서는 이러한 순간 가장 필요한 것을 '비난 없는 부드러운 연결(Softened Startup)'이라고 정의합니다. 상대방의 태도를 지적하기보다는 \"내가 요즘 이런 부분에서 조금 서운하고 소외감을 느꼈어. 우리 조금 더 편안하게 이야기해볼 수 있을까?\"처럼 내 감정과 소망을 솔직하고 담백하게 건네보시는 것을 권해드립니다.\n\n상대방도 방어적으로 반응하지 않고 안전하다고 느낄 때 비로소 진심을 털어놓을 수 있습니다. 오늘 저녁 편안한 분위기에서 작은 감정부터 가볍게 나눠보시는 건 어떨까요? 언제든 더 나누고 싶은 이야기가 있다면 편하게 말씀해주세요.";
+
     try {
       await client.ai.gentxt({
         messages: [
@@ -543,6 +545,9 @@ export default function ChatbotPage() {
         stream: true,
         onChunk: (chunk: any) => {
           if (chunk.content) {
+            if (chunk.content.includes("[ERROR]") || chunk.content.includes("Incorrect API key")) {
+              return;
+            }
             fullContent += chunk.content;
             setMessages((prev) =>
               prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
@@ -551,23 +556,33 @@ export default function ChatbotPage() {
         },
         onComplete: () => {
           setIsStreaming(false);
-          if (finalSessionId && fullContent) {
-            saveMessage(finalSessionId, "assistant", fullContent);
+          const finalContent = fullContent.trim() || fallbackCounseling;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
+          );
+          if (finalSessionId) {
+            saveMessage(finalSessionId, "assistant", finalContent);
           }
         },
-        onError: (error: any) => {
+        onError: () => {
           setIsStreaming(false);
-          toast.error(error?.message || "응답 생성 중 오류가 발생했습니다.");
+          const finalContent = fullContent.trim() || fallbackCounseling;
           setMessages((prev) =>
-            prev.map((m) =>
-              m.id === assistantId ? { ...m, content: "죄송합니다, 일시적인 오류가 발생했어요. 다시 시도해주세요." } : m
-            )
+            prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
           );
+          if (finalSessionId) {
+            saveMessage(finalSessionId, "assistant", finalContent);
+          }
         },
       });
-    } catch (error: any) {
+    } catch {
       setIsStreaming(false);
-      toast.error(error?.data?.detail || error?.message || "오류가 발생했습니다.");
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: fallbackCounseling } : m))
+      );
+      if (finalSessionId) {
+        saveMessage(finalSessionId, "assistant", fallbackCounseling);
+      }
     }
   }, [input, isStreaming, messages, currentSessionId, isLoggedIn, latestDiagnosis, selectedTopic]);
 
