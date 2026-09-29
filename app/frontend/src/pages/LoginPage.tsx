@@ -39,11 +39,26 @@ export default function LoginPage() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "로그인 처리에 실패했습니다.");
+        let errorMessage = "로그인 처리에 실패했습니다.";
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch {
+          if (response.status === 404) {
+            errorMessage = "백엔드 서버와 연결할 수 없습니다. (Render 서버가 배포 중이거나 준비 중입니다.)";
+          } else if (response.status >= 500) {
+            errorMessage = "서버가 시작 중이거나 일시적으로 응답하지 않습니다. 10~20초 후 다시 시도해주세요.";
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      const data = await response.json();
+      let data: any;
+      try {
+        data = await response.json();
+      } catch {
+        throw new Error("서버 응답 형식이 올바르지 않습니다.");
+      }
       const token = data.token;
       const user = data.user;
 
