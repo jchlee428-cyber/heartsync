@@ -132,6 +132,7 @@ const plans: Plan[] = [
     btnGradient: "from-purple-600 via-pink-600 to-rose-600 hover:from-purple-700 hover:via-pink-700 hover:to-rose-700 shadow-purple-200",
   },
 ];
+const PLANS = plans;
 
 type PaymentProvider = "toss" | "stripe";
 
@@ -438,7 +439,7 @@ export default function PricingPage() {
                   </span>
                 </div>
                 <p className="text-sm font-bold text-emerald-950 mt-0.5">
-                  {PLANS.find((p) => p.id === currentPlan)?.name || currentPlan} 플랜 정상 이용 중
+                  {(plans.find((p) => p.id === currentPlan) || plans[1])?.name || currentPlan} 플랜 정상 이용 중
                 </p>
               </div>
             </div>
