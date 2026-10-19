@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { createClient } from "@metagptx/web-sdk";
-import { CheckCircle, XCircle, Loader2, ArrowRight, Home, Sparkles, Gift, Copy, Check, MessageCircle } from "lucide-react";
+import { CheckCircle, XCircle, Loader2, ArrowRight, Home, Sparkles, Gift, Copy, Check, MessageCircle, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
