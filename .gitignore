@@ -39,3 +39,11 @@ Thumbs.db
 # Local scratch / system generated
 .system_generated/
 scratch/
+
+# Generated presentation assets & PDFs
+*.pdf
+*.pptx
+app/frontend/*.png
+app/frontend/*.html
+app/frontend/guide_captures/
+app/frontend/slide_pngs/

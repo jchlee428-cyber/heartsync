@@ -1,7 +1,11 @@
 # HeartSync (하트싱크) - AI 커플 관계 진단 및 심층 코칭 플랫폼
 
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary%20%2F%20All%20Rights%20Reserved-red.svg)](./LICENSE)
+[![Platform](https://img.shields.io/badge/Platform-Web%20%2F%20Mobile%20Responsive-blue.svg)](https://heartsync.kr)
+[![Company](https://img.shields.io/badge/%EC%A3%BC%EC%8B%9D%ED%92%8C%EC%82%AC-%EB%A0%88%EB%22%94%EB%B1%85%ED%81%AC-emerald.svg)](https://heartsync.kr)
+
 > **⚠️ 지식재산권 및 독점 소프트웨어 경고 (Proprietary & Copyright Notice)**  
-> **Copyright © 2024-2026 이종철 (HeartSync). All Rights Reserved.**  
+> **Copyright © 2024-2026 주식회사 레드뱅크 (Red Bank Co., Ltd.) / 이종철. All Rights Reserved.**  
 > 본 저장소에 수록된 모든 소스 코드, 심리 진단 50문항, 관계 갈등 분석 알고리즘, AI 심층 리포트 생성 로직, UI/UX 디자인 에셋 및 관련 문서는 저작권법의 보호를 받는 **독점적 지식재산(Proprietary Intellectual Property)**입니다.  
 > 저작권자의 사전 서면 동의 없는 무단 복제, 배포, 2차적 저작물 작성, 상업적 이용 및 소스 코드 도용을 엄격히 금지하며, 위반 시 민·형사상 법적 조치(저작권법 제136조 등)가 진행됩니다.  
 > 상세 내용은 [LICENSE](./LICENSE) 파일을 참조하십시오.

@@ -76,11 +76,12 @@ export default function RefundPolicyModal({ isOpen, onClose }: RefundPolicyModal
           <div className="space-y-1.5">
             <h5 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-purple-600" />
-              4. 정기 구독 취소 (30일 올케어)
+              4. 30일 올케어 패스 이용 안내 (단건 결제)
             </h5>
             <ul className="space-y-1 text-[11px] text-gray-600 pl-4 list-disc">
-              <li>다음 결제 주기 도래 전 언제든 마이페이지에서 위약금 없이 해지 가능</li>
-              <li>해지 후에도 남은 결제 주기 만료일까지 모든 프리미엄 서비스 유지</li>
+              <li>본 상품은 자동 결제(정기 구독)가 아닌 30일간 이용 가능한 <strong>단건 결제 패스</strong>입니다.</li>
+              <li>서비스 개시(재진단 또는 AI 상담) 전 7일 이내 100% 전액 환불 가능합니다.</li>
+              <li>30일 기간 경과 후 자동 갱신되지 않으며 추가 요금이 발생하지 않습니다.</li>
             </ul>
           </div>
 
