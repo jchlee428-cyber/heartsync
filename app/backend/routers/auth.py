@@ -449,8 +449,70 @@ async def get_current_user_info(current_user: UserResponse = Depends(get_current
     return current_user
 
 
+@router.post("/social-login", response_model=SocialLoginResponse)
+async def social_login(
+    payload: SocialLoginRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """Handle social login for Kakao, Naver, Google, Email, and Demo accounts.
+
+    Creates or retrieves the user record in database and issues a signed JWT token
+    that is fully compatible with get_current_user authentication across all endpoints.
+    """
+    provider = (payload.provider or "demo").lower().strip()
+    provider_names = {
+        "kakao": "카카오",
+        "naver": "네이버",
+        "google": "Google",
+        "email": "이메일",
+        "demo": "체험",
+    }
+    provider_label = provider_names.get(provider, provider)
+
+    if payload.email and payload.email.strip():
+        user_email = payload.email.strip().lower()
+    else:
+        pseudo_id = payload.provider_id or uuid.uuid4().hex[:8]
+        user_email = f"{provider}_{pseudo_id}@heartsync.kr"
+
+    if payload.name and payload.name.strip():
+        user_name = payload.name.strip()
+    else:
+        user_name = f"{provider_label} 회원"
+
+    # Derive consistent platform_sub (User.id)
+    if payload.provider_id and payload.provider_id.strip():
+        platform_sub = f"{provider}_{payload.provider_id.strip()}"
+    elif payload.email and payload.email.strip():
+        email_hash = hashlib.sha256(user_email.encode("utf-8")).hexdigest()[:16]
+        platform_sub = f"{provider}_{email_hash}"
+    else:
+        platform_sub = f"{provider}_{uuid.uuid4().hex[:12]}"
+
+    auth_service = AuthService(db)
+    user = await auth_service.get_or_create_user(
+        platform_sub=platform_sub,
+        email=user_email,
+        name=user_name,
+    )
+
+    token, expires_at, _ = await auth_service.issue_app_token(user=user)
+
+    logger.info(
+        f"[social_login] User logged in: sub={user.id}, email={user.email}, name={user.name}, provider={provider}"
+    )
+
+    return SocialLoginResponse(
+        token=token,
+        token_type="Bearer",
+        expires_at=int(expires_at.timestamp()),
+        user=UserResponse.model_validate(user),
+    )
+
+
 @router.get("/logout")
 async def logout():
     """Logout user."""
     logout_url = build_logout_url()
     return {"redirect_url": logout_url}
+

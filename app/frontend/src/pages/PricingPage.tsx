@@ -151,7 +151,8 @@ export default function PricingPage() {
   const [activeTab, setActiveTab] = useState<"self" | "gift">("self");
   const [testModalPlan, setTestModalPlan] = useState<Plan | null>(null);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
-  const [enableVirtualTest, setEnableVirtualTest] = useState(true);
+  // Real payment mode: disable virtual simulation so real PG (Toss/Stripe) is invoked
+  const [enableVirtualTest, setEnableVirtualTest] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);

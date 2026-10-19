@@ -11,7 +11,7 @@ services:
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL
-        value: sqlite+aiosqlite:///dev.db
+        sync: false # Set your production PostgreSQL URL (e.g. Supabase, Neon, or Render Postgres) in Render Dashboard
       - key: ENVIRONMENT
         value: production
       - key: IS_LAMBDA
@@ -21,6 +21,8 @@ services:
       - key: JWT_EXPIRE_MINUTES
         value: 1440
       - key: TOSS_SECRET_KEY
+        sync: false
+      - key: TOSS_CLIENT_KEY
         sync: false
       - key: FRONTEND_URL
         value: https://heartsync.kr

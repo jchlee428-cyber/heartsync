@@ -506,14 +506,6 @@ export default function ResultPage() {
   }, [aiReport, isGenerating]);
 
   const checkUserPlan = async () => {
-    // Check local test activation first for instant simulation
-    const localTestPlan = localStorage.getItem("heartsync_active_test_plan");
-    if (localTestPlan || localStorage.getItem("heartsync_test_paid") === "true") {
-      setHasPaidPlan(true);
-      setCheckingPlan(false);
-      return;
-    }
-
     try {
       const res = await client.apiCall.invoke({
         url: "/api/v1/payment/my-plan",
@@ -522,12 +514,25 @@ export default function ResultPage() {
       });
       if (res.data?.is_active && res.data?.plan_type !== "free") {
         setHasPaidPlan(true);
+        setCheckingPlan(false);
+        return;
       }
     } catch {
-      // Default to free
-    } finally {
-      setCheckingPlan(false);
+      // Backend check fallback
     }
+
+    // Check confirmed local active plan if present
+    try {
+      const activePlanRaw = localStorage.getItem("heartsync_active_plan");
+      if (activePlanRaw) {
+        const parsed = JSON.parse(activePlanRaw);
+        if (parsed.is_active && parsed.status === "paid" && parsed.plan_type !== "free") {
+          setHasPaidPlan(true);
+        }
+      }
+    } catch {}
+
+    setCheckingPlan(false);
   };
 
   const handleSimulatedUnlock = async () => {
@@ -1210,47 +1215,6 @@ export default function ResultPage() {
 
         {!canSeeFullReport ? (
           <>
-            {/* ── Test Simulation Header Banner ── */}
-            <div className="mt-8 bg-gradient-to-r from-amber-50 via-pink-50 to-purple-50 rounded-2xl p-4 border border-amber-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <span className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center text-sm font-black flex-shrink-0">
-                    🧪
-                  </span>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-gray-900">
-                        사전 점검 및 피드백용 테스트 모드
-                      </span>
-                      <span className="text-[10px] bg-emerald-100 text-emerald-800 font-extrabold px-1.5 py-0.5 rounded-full">
-                        과금 0원
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">
-                      토스 심사 중 실제 과금 없이 1초만에 리포트 잠금 해제와 <strong>PDF 다운로드</strong>를 테스트해보세요.
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleSimulatedUnlock}
-                  disabled={isSimulating}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-extrabold text-xs shadow-md shadow-pink-200 active:scale-95 transition-all flex items-center justify-center gap-1.5 flex-shrink-0 disabled:opacity-50"
-                >
-                  {isSimulating ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>잠금 해제 중...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-                      <span>1초 가상 결제로 즉시 체험</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-
             {/* FREE USER: Show Blur Paywall (Conversion Booster) */}
             <BlurPaywallSection
               totalScore={totalScore}
@@ -1261,7 +1225,6 @@ export default function ResultPage() {
                 if (id) localStorage.setItem("heartsync_pending_diagnosis_id", id);
                 navigate("/pricing");
               }}
-              onSimulatedUnlock={handleSimulatedUnlock}
               onInvitePartner={() => setIsInviteModalOpen(true)}
             />
           </>

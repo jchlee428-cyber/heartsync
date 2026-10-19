@@ -51,18 +51,6 @@ export default function BlurPaywallSection({
           단순한 점수 확인을 넘어, 이별 위험을 막고 관계를 회복시키는 맞춤 처방전입니다
         </p>
 
-        {/* ── Test Mode Simulation Banner ── */}
-        {onSimulatedUnlock && (
-          <div className="pt-2">
-            <button
-              onClick={onSimulatedUnlock}
-              className="w-full py-2.5 px-4 rounded-2xl bg-gradient-to-r from-amber-500 via-orange-500 to-pink-500 hover:from-amber-600 hover:to-pink-600 text-white font-extrabold text-xs shadow-md shadow-orange-200 active:scale-98 transition-all flex items-center justify-center gap-2 border border-amber-300"
-            >
-              <span>🧪 [테스트 모드] 1초 가상 결제로 즉시 잠금 해제 & PDF 체험 (과금 0원)</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        )}
       </div>
 
       {/* ── Card 1: 상대방의 진짜 서운함 1위 (Highest Curiosity Trigger) ── */}

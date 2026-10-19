@@ -67,9 +67,20 @@ class DatabaseManager:
             logger.warning(f"Unknown database driver: {drivername}")
             return raw_url
 
+        # Ensure asyncpg compatibility with cloud providers (Supabase, Neon, Render)
+        if "postgresql" in (url.drivername or ""):
+            query = dict(url.query)
+            if "sslmode" in query:
+                sslmode = query.pop("sslmode")
+                if sslmode in ("require", "verify-ca", "verify-full"):
+                    query["ssl"] = "require"
+                elif sslmode == "disable":
+                    query.pop("ssl", None)
+            url = url.set(query=query)
+
         normalized = str(url)
         if normalized != raw_url:
-            logger.warning("Adjusted database URL driver for async compatibility")
+            logger.info("Adjusted database URL driver for async compatibility")
         return normalized
 
     @staticmethod
@@ -128,6 +139,11 @@ class DatabaseManager:
                 engine_kwargs["pool_recycle"] = 3600  # Connection recycle time (1 hour)
                 engine_kwargs["pool_timeout"] = 30  # Connection acquisition timeout (30 seconds)
                 logger.info("Using QueuePool with connection pooling for non-Lambda environment")
+
+            if "postgresql" in database_url:
+                if "6543" in database_url or "pooler" in database_url or "pgbouncer" in database_url:
+                    engine_kwargs.setdefault("connect_args", {})["statement_cache_size"] = 0
+                    logger.info("Disabled asyncpg statement cache for connection pooler compatibility")
 
             self.engine = create_async_engine(database_url, **engine_kwargs)
             logger.info("Database engine created successfully")
