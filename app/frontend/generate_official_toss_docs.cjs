@@ -17,6 +17,9 @@ async function buildDocs() {
   const loginB64 = getBase64('04_login_page_raw.png');
   const pricingB64 = getBase64('05_pricing_plans_raw.png');
   const allCareB64 = getBase64('06_all_care_plan_raw.png');
+  const tossBcSelectedB64 = getBase64('07_toss_bc_selected_raw.png');
+  const bcPayboocMainB64 = getBase64('07_bc_paybooc_main_raw.png');
+  const bcPayboocQrB64 = getBase64('07_bc_paybooc_qr_raw.png');
   const successB64 = getBase64('08_payment_success_raw.png');
 
   // HTML content for 8 slides following the Toss Payments Guide
@@ -614,73 +617,37 @@ async function buildDocs() {
         </div>
       </div>
 
-      <div class="browser-content">
-        <div class="payment-mock-container">
-          <!-- Toss Standard Window -->
-          <div class="toss-card-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f1f5f9; padding-bottom:10px; margin-bottom:12px;">
-              <span style="font-size:14px; font-weight:800; color:#0f172a;">신용/체크카드 결제</span>
-              <span style="font-size:11px; color:#64748b;">토스페이먼츠 보안모듈</span>
-            </div>
-            <div style="background:#f8fafc; border-radius:10px; padding:12px; margin-bottom:14px;">
-              <div style="display:flex; justify-content:space-between; font-size:12px; color:#64748b; margin-bottom:4px;">
-                <span>주문 상품</span>
-                <span style="font-weight:700; color:#0f172a;">AI 커플 심층 분석 리포트 (2인)</span>
-              </div>
-              <div style="display:flex; justify-content:space-between; font-size:15px; font-weight:900; color:#e11d48;">
-                <span>결제 금액</span>
-                <span>₩29,000</span>
-              </div>
-            </div>
-
-            <!-- Card Grid -->
-            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; margin-bottom:14px; text-align:center;">
-              <div style="padding:10px 4px; border:2px solid #2563eb; border-radius:8px; background:#eff6ff; font-size:11px; font-weight:800; color:#1d4ed8;">비씨(페이북)</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">신한카드</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">현대카드</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">KB국민</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">삼성카드</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">롯데카드</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">하나카드</div>
-              <div style="padding:10px 4px; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; font-weight:700; color:#334155;">NH농협</div>
-            </div>
-
-            <div style="background:#f8fafc; border-radius:8px; padding:10px; font-size:11px; color:#475569; margin-bottom:12px;">
-              <div style="font-weight:700; color:#0f172a; margin-bottom:4px;">✓ 전자금융거래 기본약관 전체 동의</div>
-              <div>개인정보 수집 및 제3자 제공, 결제 대행 서비스 이용약관 동의 완료</div>
-            </div>
-
-            <div style="background:#2563eb; color:#ffffff; text-align:center; padding:10px; border-radius:8px; font-size:13px; font-weight:800;">
-              29,000원 결제하기
-            </div>
+      <div class="browser-content" style="background: #f1f5f9; padding: 14px 18px; display: flex; gap: 16px; align-items: stretch; justify-content: space-between; position: relative;">
+        <!-- Left: Real Toss Payments Modal with BC Card Selected -->
+        <div style="flex: 1.15; background: #ffffff; border: 2px solid #cbd5e1; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 6px 16px rgba(0,0,0,0.08); position: relative;">
+          <div style="background: #1e293b; color: #ffffff; font-size: 11.5px; font-weight: 800; padding: 6px 12px; display: flex; justify-content: space-between; align-items: center;">
+            <span>① 토스페이먼츠 결제창 호출 (신용·체크카드 → 비씨 선택)</span>
+            <span style="color: #93c5fd; font-family: monospace; font-size: 10.5px;">heartsync.kr/pricing</span>
           </div>
+          <div style="flex: 1; overflow: hidden; position: relative; background: #0f172a;">
+            <img src="${tossBcSelectedB64}" alt="토스페이먼츠 비씨카드 선택" style="width: 100%; height: 100%; object-fit: cover; object-position: center 54%; transform: scale(1.22);" />
+          </div>
+        </div>
 
-          <!-- BC Card ISP / Paybooc Authentication Window (Guide Page 16 requirement) -->
-          <div class="bc-card-box">
-            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #ef4444; padding-bottom:8px; margin-bottom:12px;">
-              <span style="font-size:14px; font-weight:900; color:#ef4444;">BC 페이북 결제인증</span>
-              <span style="font-size:11px; color:#64748b;">안심클릭 / ISP</span>
-            </div>
+        <!-- Middle: Real BC Card (Paybooc) Main Popup Window -->
+        <div style="flex: 0.92; background: #ffffff; border: 2px solid #2563eb; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 20px rgba(37,99,235,0.15); position: relative;">
+          <div style="background: #2563eb; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>② BC카드 (BC 페이북) 결제창 호출</span>
+            <span style="color: #dbeafe; font-family: monospace; font-size: 9.5px;">vpay.co.kr</span>
+          </div>
+          <div style="flex: 1; overflow: hidden; position: relative; background: #f8fafc;">
+            <img src="${bcPayboocMainB64}" alt="BC카드 페이북 결제창 메인" style="width: 100%; height: 100%; object-fit: contain; object-position: center;" />
+          </div>
+        </div>
 
-            <div style="text-align:center; padding:15px; background:#fef2f2; border-radius:10px; margin-bottom:14px;">
-              <div style="font-size:13px; font-weight:800; color:#991b1b; margin-bottom:4px;">페이북 앱 / QR코드 간편결제</div>
-              <div style="font-size:11px; color:#7f1d1d;">스마트폰의 페이북 앱을 열어 결제를 진행해주세요.</div>
-            </div>
-
-            <div style="border:1px solid #e2e8f0; border-radius:8px; padding:12px; font-size:11px; color:#334155; margin-bottom:14px; line-height:1.6;">
-              <div style="display:flex; justify-content:space-between;"><span>가맹점명:</span><strong>주식회사 레드뱅크 (HeartSync)</strong></div>
-              <div style="display:flex; justify-content:space-between;"><span>결제금액:</span><strong style="color:#ef4444;">29,000원</strong></div>
-              <div style="display:flex; justify-content:space-between;"><span>할부기간:</span><span>일시불</span></div>
-            </div>
-
-            <div style="display:flex; gap:8px;">
-              <div style="flex:1; background:#ef4444; color:#ffffff; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:800;">
-                결제 승인 요청
-              </div>
-              <div style="width:70px; background:#e2e8f0; color:#475569; text-align:center; padding:10px; border-radius:8px; font-size:12px; font-weight:700;">
-                취소
-              </div>
-            </div>
+        <!-- Right: Real BC Card (Paybooc) QR & Payment Code Screen -->
+        <div style="flex: 0.98; background: #ffffff; border: 2px solid #ef4444; border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 20px rgba(239,68,68,0.15); position: relative;">
+          <div style="background: #dc2626; color: #ffffff; font-size: 11px; font-weight: 800; padding: 6px 10px; display: flex; justify-content: space-between; align-items: center;">
+            <span>③ BC카드 페이북 QR · 결제코드 화면</span>
+            <span style="color: #fee2e2; font-size: 9.5px;">29,000원 일시불</span>
+          </div>
+          <div style="flex: 1; overflow: hidden; position: relative; background: #f8fafc;">
+            <img src="${bcPayboocQrB64}" alt="BC카드 페이북 QR 결제창" style="width: 100%; height: 100%; object-fit: contain; object-position: center;" />
           </div>
         </div>
       </div>

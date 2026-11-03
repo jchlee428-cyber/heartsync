@@ -9,26 +9,41 @@ import {
 import { Gift, Heart, Sparkles, Crown, Send, Check, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
+import TossPaymentModal from "@/components/TossPaymentModal";
 
 interface GiftModalProps {
   isOpen: boolean;
   onClose: () => void;
   selectedPlanId?: string;
+  initialPlanId?: string;
 }
 
 export default function GiftModal({
   isOpen,
   onClose,
-  selectedPlanId = "monthly_subscription",
+  selectedPlanId,
+  initialPlanId,
 }: GiftModalProps) {
+  const defaultPlan = initialPlanId || selectedPlanId || "monthly_subscription";
   const [recipientName, setRecipientName] = useState("");
   const [senderName, setSenderName] = useState("");
   const [recipientPhone, setRecipientPhone] = useState("");
   const [loveLetter, setLoveLetter] = useState(
     "우리 1주년 기념으로 속마음 맞춰보자! 늘 사랑해 ❤️"
   );
-  const [selectedPlan, setSelectedPlan] = useState<string>(selectedPlanId);
+  const [selectedPlan, setSelectedPlan] = useState<string>(defaultPlan);
   const [isLoading, setIsLoading] = useState(false);
+  const [tossCheckoutData, setTossCheckoutData] = useState<{
+    orderId: string;
+    orderName: string;
+    amount: number;
+    clientKey: string;
+    customerKey: string;
+    customerName: string;
+    customerEmail: string;
+    successUrl: string;
+    failUrl: string;
+  } | null>(null);
 
   const planOptions = [
     {
@@ -82,27 +97,49 @@ export default function GiftModal({
       localStorage.setItem("heartsync_latest_gift", JSON.stringify(giftData));
 
       // 2. Initialize Toss Payments (Live or Test Mode)
-      const clientKey = "test_ck_D5GePWvyJqK4W7m10bBg3zN97Eoq";
-      const tossPayments = await loadTossPayments(clientKey);
-      const payment = tossPayments.payment({
-        customerKey: `cust_${Date.now()}`,
-      });
-
+      const clientKey =
+        (import.meta as any).env?.VITE_TOSS_CLIENT_KEY ||
+        "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+      const customerKey = `cust_${Date.now()}`;
       const orderId = `order_${ticketId}`;
+      const orderName = `[선물] HeartSync ${currentOption.name}`;
+      const successUrl = `${window.location.origin}/payment-success?gift_ticket_id=${ticketId}&orderId=${orderId}&amount=${currentOption.price}`;
+      const failUrl = `${window.location.origin}/pricing?payment=failed`;
 
-      // Request payment with redirect
-      await payment.requestPayment({
-        method: "CARD",
-        amount: {
-          currency: "KRW",
-          value: currentOption.price,
-        },
-        orderId: orderId,
-        orderName: `[선물] HeartSync ${currentOption.name}`,
-        successUrl: `${window.location.origin}/payment-success?gift_ticket_id=${ticketId}&orderId=${orderId}&amount=${currentOption.price}`,
-        failUrl: `${window.location.origin}/pricing?payment_fail=true`,
-        customerName: senderName,
-      });
+      if (clientKey.startsWith("live_ck_")) {
+        const tossPayments = await loadTossPayments(clientKey);
+        const payment = tossPayments.payment({ customerKey });
+        await payment.requestPayment({
+          method: "CARD",
+          amount: {
+            currency: "KRW",
+            value: currentOption.price,
+          },
+          orderId,
+          orderName,
+          successUrl,
+          failUrl,
+          customerName: senderName,
+          card: {
+            useEscrow: false,
+            flowMode: "DEFAULT",
+            useCardPoint: false,
+            useAppCardOnly: false,
+          },
+        });
+      } else {
+        setTossCheckoutData({
+          orderId,
+          orderName,
+          amount: currentOption.price,
+          clientKey,
+          customerKey,
+          customerName: senderName,
+          customerEmail: "gift@heartsync.kr",
+          successUrl,
+          failUrl,
+        });
+      }
     } catch (err: any) {
       console.error("Gift payment error:", err);
       // If modal cancelled or error
@@ -254,6 +291,21 @@ export default function GiftModal({
           </p>
         </div>
       </DialogContent>
+      {tossCheckoutData && (
+        <TossPaymentModal
+          isOpen={!!tossCheckoutData}
+          onClose={() => setTossCheckoutData(null)}
+          orderId={tossCheckoutData.orderId}
+          orderName={tossCheckoutData.orderName}
+          amount={tossCheckoutData.amount}
+          clientKey={tossCheckoutData.clientKey}
+          customerKey={tossCheckoutData.customerKey}
+          customerName={tossCheckoutData.customerName}
+          customerEmail={tossCheckoutData.customerEmail}
+          successUrl={tossCheckoutData.successUrl}
+          failUrl={tossCheckoutData.failUrl}
+        />
+      )}
     </Dialog>
   );
 }

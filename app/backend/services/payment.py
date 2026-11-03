@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 TOSS_API_BASE = "https://api.tosspayments.com/v1"
 
 # Public test keys (safe to use for development/testing)
-TOSS_TEST_SECRET_KEY = "test_sk_zXLkKEypNArWmo50nX3lmeaxYG5R"
-TOSS_TEST_CLIENT_KEY = "test_ck_D5GePWvyJnrK0W0k6q8gmeYBlNkw"
+TOSS_TEST_SECRET_KEY = "test_gsk_docs_OaPz8L5KdmQXkzRz3y47BMw6"
+TOSS_TEST_CLIENT_KEY = "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm"
 
 
 class TossPaymentError(Exception):

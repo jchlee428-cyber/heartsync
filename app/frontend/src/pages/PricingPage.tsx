@@ -28,6 +28,7 @@ import LoginModal from "@/components/LoginModal";
 import GiftModal from "@/components/GiftModal";
 import Footer from "@/components/Footer";
 import TestPaymentModal from "@/components/TestPaymentModal";
+import TossPaymentModal from "@/components/TossPaymentModal";
 
 const client = createClient();
 
@@ -151,6 +152,18 @@ export default function PricingPage() {
   const [activeTab, setActiveTab] = useState<"self" | "gift">("self");
   const [testModalPlan, setTestModalPlan] = useState<Plan | null>(null);
   const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [pendingPlanId, setPendingPlanId] = useState<string | null>(null);
+  const [tossCheckoutData, setTossCheckoutData] = useState<{
+    orderId: string;
+    orderName: string;
+    amount: number;
+    clientKey: string;
+    customerKey: string;
+    customerName: string;
+    customerEmail: string;
+    successUrl: string;
+    failUrl: string;
+  } | null>(null);
   // Real payment mode: disable virtual simulation so real PG (Toss/Stripe) is invoked
   const [enableVirtualTest, setEnableVirtualTest] = useState(false);
 
@@ -269,13 +282,16 @@ export default function PricingPage() {
     }
   };
 
-  const handlePurchaseToss = async (planId: string) => {
-    const activeUser = getEffectiveUser();
+  const handlePurchaseToss = async (planId: string, overrideUser?: any) => {
+    const activeUser = overrideUser || getEffectiveUser();
     if (!activeUser) {
+      setPendingPlanId(planId);
       toast.info("로그인이 필요합니다");
       setIsLoginModalOpen(true);
       return;
     }
+
+    const selectedPlan = plans.find((p) => p.id === planId) || plans[0];
 
     setLoading(planId);
     try {
@@ -284,30 +300,95 @@ export default function PricingPage() {
         localStorage.setItem("heartsync_pending_diagnosis_id", diagnosisId);
       }
 
-      const res = await client.apiCall.invoke({
-        url: "/api/v1/payment/prepare_order",
-        method: "POST",
-        data: { plan_type: planId, diagnosis_id: diagnosisId },
-      });
+      // 1. Prepare order via backend API with resilient client-side fallback
+      //    (prevents "Request failed with status code 404" when backend is sleeping/offline)
+      let order_id = `HS-${planId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+      let order_name = selectedPlan.name;
+      let amount = selectedPlan.priceNum;
+      let client_key =
+        (import.meta as any).env?.VITE_TOSS_CLIENT_KEY ||
+        "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
 
-      const { order_id, order_name, amount, client_key } = res.data;
+      try {
+        const res = await client.apiCall.invoke({
+          url: "/api/v1/payment/prepare_order",
+          method: "POST",
+          data: { plan_type: planId, diagnosis_id: diagnosisId },
+        });
+        if (res?.data?.order_id) {
+          order_id = res.data.order_id;
+          order_name = res.data.order_name || order_name;
+          amount = Number(res.data.amount) || amount;
+          if (res.data.client_key) {
+            client_key = res.data.client_key;
+          }
+        }
+      } catch (prepErr) {
+        console.warn("Backend prepare_order fallback activated:", prepErr);
+      }
 
-      const tossPayments = await loadTossPayments(client_key);
+      // Save pending order metadata in localStorage for confirmation fallback
+      localStorage.setItem(
+        `heartsync_pending_order_${order_id}`,
+        JSON.stringify({
+          order_id,
+          plan_type: planId,
+          plan_name: order_name,
+          amount,
+          diagnosis_id: diagnosisId,
+          created_at: new Date().toISOString(),
+        })
+      );
+
       const currentHost = window.location.origin;
+      const rawCustomerId = String(activeUser?.id || activeUser?.email || `cust_${Date.now()}`);
+      const sanitizedCustomerKey =
+        rawCustomerId.replace(/[^a-zA-Z0-9\-_=.@]/g, "_").slice(0, 45) || `cust_${Date.now()}`;
+      const customerKey =
+        sanitizedCustomerKey.length >= 2 ? sanitizedCustomerKey : `cust_${sanitizedCustomerKey}`;
 
-      await (tossPayments as any).requestPayment("CARD", {
-        amount: {
-          currency: "KRW",
-          value: amount,
-        },
-        orderId: order_id,
-        orderName: order_name,
-        successUrl: `${currentHost}/payment-success`,
-        failUrl: `${currentHost}/pricing?payment=failed`,
-        card: {
-          flowMode: "DEFAULT",
-        },
-      });
+      const successUrl = `${currentHost}/payment-success?plan_type=${encodeURIComponent(planId)}${
+        diagnosisId ? `&diagnosis_id=${encodeURIComponent(diagnosisId)}` : ""
+      }`;
+      const failUrl = `${currentHost}/pricing?payment=failed`;
+
+      // If a live_ck_ individual API key is configured, invoke direct payment window;
+      // otherwise open the official Toss Payment Widget modal (supports all cards incl. BC Card)
+      if (client_key.startsWith("live_ck_")) {
+        const tossPayments = await loadTossPayments(client_key);
+        const payment = tossPayments.payment({ customerKey });
+        await payment.requestPayment({
+          method: "CARD",
+          amount: {
+            currency: "KRW",
+            value: Number(amount),
+          },
+          orderId: order_id,
+          orderName: order_name,
+          successUrl,
+          failUrl,
+          customerEmail: activeUser?.email || "customer@heartsync.kr",
+          customerName: activeUser?.name || "고객",
+          card: {
+            useEscrow: false,
+            flowMode: "DEFAULT",
+            useCardPoint: false,
+            useAppCardOnly: false,
+          },
+        });
+      } else {
+        setTossCheckoutData({
+          orderId: order_id,
+          orderName: order_name,
+          amount: Number(amount),
+          clientKey: client_key,
+          customerKey,
+          customerName: activeUser?.name || "고객",
+          customerEmail: activeUser?.email || "customer@heartsync.kr",
+          successUrl,
+          failUrl,
+        });
+      }
     } catch (e: any) {
       if (e?.code === "USER_CANCEL" || e?.code === "PAY_PROCESS_CANCELED" || e?.message?.includes("취소")) {
         toast.info("결제가 취소되었습니다");
@@ -368,6 +449,7 @@ export default function PricingPage() {
   const handlePurchase = async (planId: string) => {
     const activeUser = getEffectiveUser();
     if (!activeUser) {
+      setPendingPlanId(planId);
       toast.info("로그인이 필요합니다");
       setIsLoginModalOpen(true);
       return;
@@ -383,7 +465,7 @@ export default function PricingPage() {
     if (paymentProvider === "stripe") {
       await handlePurchaseStripe(planId);
     } else {
-      await handlePurchaseToss(planId);
+      await handlePurchaseToss(planId, activeUser);
     }
   };
 
@@ -792,15 +874,40 @@ export default function PricingPage() {
       {/* Login Modal */}
       <LoginModal
         isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
+        onClose={() => {
+          setIsLoginModalOpen(false);
+          setPendingPlanId(null);
+        }}
         onSuccess={(loggedInUser) => {
           setIsLoginModalOpen(false);
           if (loggedInUser) {
             setUser(loggedInUser);
           }
           checkAuth();
+          if (pendingPlanId) {
+            const targetPlan = pendingPlanId;
+            setPendingPlanId(null);
+            handlePurchaseToss(targetPlan, loggedInUser);
+          }
         }}
       />
+
+      {/* Toss Payments Official Widget Modal */}
+      {tossCheckoutData && (
+        <TossPaymentModal
+          isOpen={!!tossCheckoutData}
+          onClose={() => setTossCheckoutData(null)}
+          orderId={tossCheckoutData.orderId}
+          orderName={tossCheckoutData.orderName}
+          amount={tossCheckoutData.amount}
+          clientKey={tossCheckoutData.clientKey}
+          customerKey={tossCheckoutData.customerKey}
+          customerName={tossCheckoutData.customerName}
+          customerEmail={tossCheckoutData.customerEmail}
+          successUrl={tossCheckoutData.successUrl}
+          failUrl={tossCheckoutData.failUrl}
+        />
+      )}
 
       {/* Gift Modal (100일/1주년/기념일 선물) */}
       <GiftModal
