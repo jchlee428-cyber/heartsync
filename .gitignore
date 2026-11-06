@@ -45,5 +45,6 @@ scratch/
 *.pptx
 app/frontend/*.png
 app/frontend/*.html
+!app/frontend/index.html
 app/frontend/guide_captures/
 app/frontend/slide_pngs/
