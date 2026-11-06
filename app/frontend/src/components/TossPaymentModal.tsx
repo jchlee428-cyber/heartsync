@@ -91,6 +91,12 @@ export default function TossPaymentModal({
       }
     }
 
+    // Ensure Radix Dialog body pointer-events lock is cleared so Toss iframe receives clicks
+    document.body.style.pointerEvents = "auto";
+    const pointerTimer = setTimeout(() => {
+      document.body.style.pointerEvents = "auto";
+    }, 250);
+
     // Small delay to ensure DOM containers are mounted
     const timer = setTimeout(() => {
       initTossWidgets();
@@ -99,6 +105,7 @@ export default function TossPaymentModal({
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      clearTimeout(pointerTimer);
       try {
         paymentMethodWidgetRef.current?.destroy?.();
         agreementWidgetRef.current?.destroy?.();
@@ -137,8 +144,8 @@ export default function TossPaymentModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
-      <div className="relative w-full max-w-[560px] bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]">
+    <div className="fixed inset-0 z-[150] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
+      <div className="relative w-full max-w-[560px] pointer-events-auto bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-gray-900 to-slate-800 text-white flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-2.5">

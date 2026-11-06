@@ -152,8 +152,9 @@ export default function GiftModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-pink-100 rounded-3xl bg-white shadow-2xl">
+    <>
+      <Dialog open={isOpen && !tossCheckoutData} onOpenChange={(open) => !open && onClose()}>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden border-pink-100 rounded-3xl bg-white shadow-2xl">
         {/* Top Header */}
         <div className="bg-gradient-to-br from-rose-500 via-pink-500 to-purple-600 p-6 text-white text-center relative">
           <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center mx-auto mb-2 shadow-inner">
@@ -290,7 +291,8 @@ export default function GiftModal({
             결제 완료 즉시 카카오톡으로 전송 가능한 고화질 모바일 선물 카드가 발급됩니다.
           </p>
         </div>
-      </DialogContent>
+        </DialogContent>
+      </Dialog>
       {tossCheckoutData && (
         <TossPaymentModal
           isOpen={!!tossCheckoutData}
@@ -306,6 +308,6 @@ export default function GiftModal({
           failUrl={tossCheckoutData.failUrl}
         />
       )}
-    </Dialog>
+    </>
   );
 }
