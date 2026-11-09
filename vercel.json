@@ -13,6 +13,10 @@
       "destination": "/api/reviews"
     },
     {
+      "source": "/api/admin-metrics",
+      "destination": "/api/admin-metrics"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://heartsync-5tbs.onrender.com/api/:match*"
     },

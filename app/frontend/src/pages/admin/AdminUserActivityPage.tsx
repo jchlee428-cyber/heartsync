@@ -209,6 +209,14 @@ export default function AdminUserActivityPage() {
         </button>
       </div>
 
+      {/* Privacy Notice Banner */}
+      <div className="mb-4 px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2 text-xs text-emerald-800">
+        <Shield className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+        <span>
+          <strong>개인정보 및 대화 비밀 보장:</strong> 내담자의 개인 상담 대화 원문은 수집·열람되지 않으며, 비식별 세션 이용 건수만 표시됩니다.
+        </span>
+      </div>
+
       {/* User info card */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
         <div className="flex items-center gap-4 mb-4">
@@ -343,11 +351,15 @@ export default function AdminUserActivityPage() {
                           {config.label}
                         </span>
                         <h3 className="text-sm font-semibold text-gray-900 truncate">
-                          {activity.title}
+                          {activity.type === 'chat'
+                            ? `AI 코칭 세션 #${activity.metadata?.session_id || activity.id}`
+                            : activity.title}
                         </h3>
                       </div>
                       <p className="text-xs text-gray-500 mb-1">
-                        {activity.description}
+                        {activity.type === 'chat'
+                          ? `메시지 ${activity.metadata?.message_count || 0}개 (🔒 개인 대화 원문 비공개)`
+                          : activity.description}
                       </p>
                       <div className="flex items-center gap-1 text-[11px] text-gray-400">
                         <Clock className="w-3 h-3" />

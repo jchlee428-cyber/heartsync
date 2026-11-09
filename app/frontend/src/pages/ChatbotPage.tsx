@@ -26,6 +26,11 @@ import {
   loadOrCreateProgramPlan,
   getProgramProgressSummary,
 } from "@/lib/improvementProgram";
+import {
+  recordAiCoachUsageTelemetry,
+  recordPromptQualityEvaluation,
+  recordAdminErrorEvent,
+} from "@/lib/adminTelemetry";
 import ImprovementProgramModal from "@/components/ImprovementProgramModal";
 
 const client = createClient();
@@ -918,6 +923,8 @@ export default function ChatbotPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          promptVersion: "v2.0",
+          intentType: intentInfo.intent,
           messages: [
             { role: "system", content: turnSystemPrompt },
             ...chatHistory,
@@ -929,6 +936,15 @@ export default function ChatbotPage() {
         const serverlessData = await serverlessResp.json();
         const replyText = serverlessData?.content?.trim();
         if (replyText && !isLegacyStaticFallback(replyText)) {
+          recordAiCoachUsageTelemetry({
+            isFallback: false,
+            model: serverlessData?.model || "gpt-4o-mini",
+            promptVersion: "v2.0",
+            intentType: intentInfo.intent,
+            promptTokens: serverlessData?.usage?.promptTokens,
+            completionTokens: serverlessData?.usage?.completionTokens,
+            latencyMs: serverlessData?.usage?.latencyMs,
+          });
           setIsStreaming(false);
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: replyText } : m))
@@ -939,6 +955,12 @@ export default function ChatbotPage() {
           }
           return;
         }
+      } else {
+        recordAdminErrorEvent({
+          module: "AI_API",
+          code: serverlessResp.status,
+          summary: `/api/ai-chat HTTP ${serverlessResp.status}`,
+        });
       }
     } catch {
       // Fall through to backend / conversational engine
@@ -994,6 +1016,11 @@ export default function ChatbotPage() {
         },
       });
     } catch {
+      recordAiCoachUsageTelemetry({
+        isFallback: true,
+        promptVersion: "v2.0",
+        intentType: intentInfo.intent,
+      });
       setIsStreaming(false);
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: fallbackCounseling } : m))
@@ -1123,6 +1150,12 @@ export default function ChatbotPage() {
         text: reviewContent,
         authorName: userName,
         profileInfo: selectedTopic ? `${selectedTopic.label} 상담` : "AI 코칭 이용자",
+        rating: ratingValue,
+        tags: ratingTags,
+      });
+
+      recordPromptQualityEvaluation({
+        promptVersion: "v2.0",
         rating: ratingValue,
         tags: ratingTags,
       });

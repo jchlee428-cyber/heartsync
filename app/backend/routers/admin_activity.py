@@ -145,7 +145,7 @@ async def get_user_activity(
                 )
             )
 
-    # 4. Chat session history
+    # 4. Chat session history (Privacy-by-Design: never expose personal conversation raw text/preview)
     if not activity_type or activity_type == "chat":
         chat_result = await db.execute(
             select(Chat_sessions)
@@ -155,15 +155,12 @@ async def get_user_activity(
         chats = chat_result.scalars().all()
         for c in chats:
             msg_count = c.message_count or 0
-            preview = c.last_message_preview or ""
-            if len(preview) > 50:
-                preview = preview[:50] + "..."
             activities.append(
                 ActivityLogItem(
                     id=f"chat-{c.id}",
                     type="chat",
-                    title=c.title or f"채팅 세션 #{c.id}",
-                    description=f"메시지 {msg_count}개{' | ' + preview if preview else ''}",
+                    title=f"AI 코칭 세션 #{c.id}",
+                    description=f"메시지 {msg_count}개 (🔒 개인 대화 원문 비공개)",
                     created_at=c.created_at.isoformat() if c.created_at else None,
                     metadata={
                         "session_id": c.id,
