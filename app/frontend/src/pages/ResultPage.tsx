@@ -820,6 +820,55 @@ ${topWeakLines}
       }
     };
 
+    const directApiKey = (
+      (import.meta as any).env?.VITE_OPENAI_API_KEY ||
+      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+      (import.meta as any).env?.VITE_AI_API_KEY ||
+      localStorage.getItem("heartsync_ai_api_key") ||
+      ""
+    ).trim();
+
+    if (directApiKey) {
+      try {
+        const isGemini = directApiKey.startsWith("AIza");
+        const endpoint = isGemini
+          ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+          : "https://api.openai.com/v1/chat/completions";
+        const modelName = isGemini ? "gemini-2.5-flash" : "gpt-4o-mini";
+
+        const resp = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${directApiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              {
+                role: "system",
+                content:
+                  "당신은 존 가트맨 이론, 애착 이론, 스턴버그의 사랑의 삼각형 이론, EFT(감정중심치료), 인지행동치료(CBT)에 정통한 15년 경력의 커플 관계 전문 상담사입니다. 항상 따뜻하면서도 전문적인 톤을 유지하고, 구체적인 심리학 이론에 기반한 분석을 제공합니다.",
+              },
+              { role: "user", content: prompt },
+            ],
+            temperature: 0.7,
+          }),
+        });
+
+        if (resp.ok) {
+          const resJson = await resp.json();
+          const replyText = resJson?.choices?.[0]?.message?.content?.trim();
+          if (replyText && replyText.length >= 50) {
+            await finalizeAndSave(replyText);
+            return;
+          }
+        }
+      } catch {
+        // Fall through to backend / standard report
+      }
+    }
+
     try {
       await client.ai.gentxt({
         messages: [
