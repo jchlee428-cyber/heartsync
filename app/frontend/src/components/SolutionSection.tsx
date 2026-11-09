@@ -20,6 +20,7 @@ import {
   DEFAULT_REVIEWS,
   FEEDBACK_TAG_OPTIONS,
   FEEDBACK_TAG_LABELS,
+  RECOMMENDED_REVIEW_TEMPLATES,
   formatMaskedAuthor,
   getCombinedReviews,
   getMyReviewIds,
@@ -485,8 +486,33 @@ export default function SolutionSection() {
               ))}
             </div>
 
-            {/* 4. Review Textarea */}
+            {/* 4. Recommended Templates + Review Textarea */}
             <div>
+              <div className="mb-2">
+                <p className="text-[11px] font-semibold text-pink-600 mb-1.5 flex items-center gap-1">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  추천 후기 템플릿 (클릭하면 내용이 자동 입력됩니다)
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {RECOMMENDED_REVIEW_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => {
+                        setReviewText(tpl.text);
+                        setSelectedTags(tpl.tags);
+                        if (!profileInfo.trim()) setProfileInfo(tpl.profileInfo);
+                        if (!authorName.trim()) setAuthorName(tpl.authorName);
+                        setRating(5);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-pink-50/80 hover:bg-pink-100 border border-pink-200 text-pink-700 text-[11px] font-semibold transition-all active:scale-95"
+                    >
+                      {tpl.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="flex items-center justify-between mb-1">
                 <label className="text-[11px] font-semibold text-gray-600">
                   후기 내용 <span className="text-pink-500">*</span>
@@ -496,7 +522,7 @@ export default function SolutionSection() {
               <textarea
                 value={reviewText}
                 onChange={(e) => setReviewText(e.target.value)}
-                placeholder="50문항 관계 진단이나 AI 코치 상담을 통해 느낀 점, 관계에 도움이 되었던 부분을 자유롭게 작성해주세요."
+                placeholder="위 추천 후기 템플릿을 클릭하거나, 50문항 관계 진단·AI 코칭을 통해 느낀 점을 자유롭게 작성해주세요."
                 rows={3}
                 maxLength={500}
                 className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs leading-relaxed focus:outline-none focus:border-pink-400 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all"
