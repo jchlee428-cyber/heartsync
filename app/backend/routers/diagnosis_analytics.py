@@ -25,6 +25,7 @@ class MiniCheckinRequest(BaseModel):
 class TrendPoint(BaseModel):
     id: int
     date: str
+    created_at: Optional[str] = None
     total_score: int
     grade: str
     scores: Dict[str, int]
@@ -38,19 +39,19 @@ class TrendResponse(BaseModel):
     previous_score: Optional[int] = None
     score_change: int = 0
     conflict_improvement_pct: int = 0
-    trend_status: str  # "improving", "stable", "warning"
+    trend_status: str  # "improving", "stable", "warning", "baseline", "empty"
     headline_insight: str
     detailed_insight: str
 
 
-def calculate_grade(total: int) -> str:
+def calculate_grade(total: int, conflict_score: Optional[int] = None) -> str:
+    if total < 140 or (conflict_score is not None and 0 < conflict_score < 25):
+        return "위험(갈등주의) 🔴" if total >= 140 else "위험 🔴"
     if total >= 210:
         return "매우 건강 🟢"
     if total >= 175:
         return "양호 🔵"
-    if total >= 140:
-        return "주의 필요 🟡"
-    return "위험 🔴"
+    return "주의 필요 🟡"
 
 
 @router.get("/trend", response_model=TrendResponse)
@@ -81,6 +82,7 @@ async def get_diagnosis_trend(
                     scores_dict = {}
 
             date_str = r.created_at.strftime("%m.%d") if r.created_at else "최근"
+            created_iso = r.created_at.isoformat() if r.created_at else None
             total = r.total_score or 0
             is_mini = "[MINI_CHECKIN]" in (r.answers or "")
 
@@ -88,55 +90,61 @@ async def get_diagnosis_trend(
                 TrendPoint(
                     id=r.id,
                     date=date_str,
+                    created_at=created_iso,
                     total_score=total,
-                    grade=calculate_grade(total),
+                    grade=calculate_grade(total, scores_dict.get("conflict")),
                     scores=scores_dict,
                     is_mini=is_mini,
                 )
             )
 
-        # If user has no records, generate mock starting baseline point for pleasant visualization
         if len(history) == 0:
-            history.append(
-                TrendPoint(
-                    id=0,
-                    date="진단 대기",
-                    total_score=150,
-                    grade="주의 필요 🟡",
-                    scores={"conflict": 28, "intimacy": 32, "trust": 30, "values": 31, "physical": 29},
-                    is_mini=False,
-                )
+            return TrendResponse(
+                history=[],
+                total_count=0,
+                latest_score=0,
+                previous_score=None,
+                score_change=0,
+                conflict_improvement_pct=0,
+                trend_status="empty",
+                headline_insight="아직 기록된 관계 진단 데이터가 없습니다.",
+                detailed_insight="50문항 정밀 진단 또는 '3분 체크인'을 완료하시면 실제 점수를 기반으로 시계열 변화 그래프가 생성됩니다.",
             )
 
         latest = history[-1]
         previous = history[-2] if len(history) >= 2 else None
 
-        score_change = (latest.total_score - previous.total_score) if previous else 0
+        if not previous:
+            return TrendResponse(
+                history=history,
+                total_count=1,
+                latest_score=latest.total_score,
+                previous_score=None,
+                score_change=0,
+                conflict_improvement_pct=0,
+                trend_status="baseline",
+                headline_insight=f"1회차 진단 기준점({latest.total_score}점 · {latest.grade})이 정확히 기록되었습니다 📊",
+                detailed_insight="첫 관계 진단 기준점이 저장되었습니다. 맞춤 실천 플랜을 적용한 뒤 '3분 체크인'으로 2회차 실제 점수 변화를 측정해보세요.",
+            )
 
-        # Calculate conflict management improvement
+        score_change = latest.total_score - previous.total_score
         latest_conflict = latest.scores.get("conflict", 30)
-        prev_conflict = previous.scores.get("conflict", 26) if previous else max(15, latest_conflict - 4)
-        
+        prev_conflict = max(previous.scores.get("conflict", 30), 1)
         conflict_diff = latest_conflict - prev_conflict
-        conflict_improvement_pct = round((conflict_diff / max(prev_conflict, 1)) * 100)
-        # Ensure positive and encouraging message when improving
-        if conflict_improvement_pct <= 0 and len(history) >= 2:
-            conflict_improvement_pct = max(0, conflict_improvement_pct)
-        elif len(history) == 1:
-            conflict_improvement_pct = 15  # Default baseline milestone
+        conflict_improvement_pct = round((conflict_diff / prev_conflict) * 100)
 
         if score_change > 0:
             trend_status = "improving"
-            headline_insight = f"우리 커플의 갈등 지수가 지난달 대비 {abs(conflict_improvement_pct)}% 개선되었습니다! 🎉"
-            detailed_insight = "비난 대신 부드럽게 요청하는 소통 습관이 정착되며 갈등 회복 탄력성이 크게 향상되고 있습니다."
+            headline_insight = f"직전 진단({previous.total_score}점) 대비 종합 점수가 +{score_change}점 상승했습니다! 🎉"
+            detailed_insight = "비난 대신 부드럽게 요청하는 소통 습관이 정착되며 관계 회복 탄력성이 실질적으로 향상되고 있습니다."
         elif score_change == 0:
             trend_status = "stable"
-            headline_insight = "관계의 안정적인 신뢰 지수가 꾸준히 유지되고 있습니다 🤝"
-            detailed_insight = "현재의 평온함을 바탕으로 정서적 친밀감과 새로운 공통 취미를 가꾸어보세요."
+            headline_insight = f"직전 진단과 동일한 종합 {latest.total_score}점({latest.grade})을 유지하고 있습니다 🤝"
+            detailed_insight = "현재의 안정감을 바탕으로 가장 점수가 낮은 영역의 실천 과제를 하나씩 시도해보세요."
         else:
             trend_status = "warning"
-            headline_insight = f"최근 소통 과정에서 갈등 관리 지수가 {abs(score_change)}점 감소했습니다 ⚠️"
-            detailed_insight = "일상의 피로와 스트레스가 대화에 영향을 미치고 있습니다. '3분 미니 대화법'을 실천해보세요."
+            headline_insight = f"직전 진단({previous.total_score}점) 대비 종합 점수가 {score_change}점 변화했습니다 ⚠️"
+            detailed_insight = "일상의 피로와 스트레스가 대화에 영향을 미치고 있습니다. 리포트의 실천 전략과 AI 코칭으로 소통 방식을 점검해보세요."
 
         return TrendResponse(
             history=history,

@@ -850,7 +850,7 @@ export default function MyPage() {
 
         {/* ── Relationship Time-series Trend Tracker ── */}
         <div className="mt-6">
-          <RelationshipTrendTracker />
+          <RelationshipTrendTracker currentDiagnosis={diagnoses[0]} />
         </div>
 
         {/* Diagnosis History */}

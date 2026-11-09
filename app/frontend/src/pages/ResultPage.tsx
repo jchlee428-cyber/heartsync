@@ -1400,7 +1400,7 @@ ${topWeakLines}
 
             {/* ── Relationship Time-series Trend Tracker ── */}
             <div className="mt-8">
-              <RelationshipTrendTracker />
+              <RelationshipTrendTracker currentDiagnosis={diagnosis} />
             </div>
 
             {/* Action Buttons */}
