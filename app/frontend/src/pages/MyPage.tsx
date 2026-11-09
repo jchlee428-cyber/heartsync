@@ -7,6 +7,7 @@ import LoginModal from "@/components/LoginModal";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 import DailyRoutineCard from "@/components/DailyRoutineCard";
 import Footer from "@/components/Footer";
+import { syncUserDataWithCloud, deleteSyncedDiagnosis, getDeletedDiagnosisIds } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -185,6 +186,7 @@ export default function MyPage() {
 
       if (currentUser && !isLoggedOut) {
         setUser(currentUser);
+        await syncUserDataWithCloud(currentUser.email || currentUser.id);
         await Promise.all([
           loadDiagnoses(),
           loadSyncLogs(),
@@ -242,12 +244,16 @@ export default function MyPage() {
         } catch {}
       }
 
-      // Merge and deduplicate by id
+      // Merge and deduplicate by id (filtering out deleted IDs across devices)
+      const deletedSet = getDeletedDiagnosisIds();
       const map = new Map<string, any>();
       for (const item of localItems) {
-        map.set(String(item.id), { ...item, is_temp_saved: true });
+        if (item && item.id && !deletedSet.has(String(item.id))) {
+          map.set(String(item.id), { ...item, is_temp_saved: true });
+        }
       }
       for (const item of serverItems) {
+        if (!item || !item.id || deletedSet.has(String(item.id))) continue;
         const localMatch = map.get(String(item.id));
         if (localMatch && !item.ai_report && localMatch.ai_report) {
           map.set(String(item.id), { ...item, ai_report: localMatch.ai_report });
@@ -589,14 +595,8 @@ export default function MyPage() {
   const handleDeleteDiagnosis = async (id: number | string) => {
     setIsDeleting(true);
     try {
-      // 1. Delete from local storage
-      const localStr = localStorage.getItem("heartsync_local_diagnoses") || "[]";
-      try {
-        const localItems = JSON.parse(localStr);
-        const filtered = localItems.filter((d: any) => String(d.id) !== String(id));
-        localStorage.setItem("heartsync_local_diagnoses", JSON.stringify(filtered));
-      } catch {}
-      localStorage.removeItem(`heartsync_diagnosis_${id}`);
+      // 1. Delete locally and sync deletion to cloud across PC & Mobile
+      await deleteSyncedDiagnosis(id);
 
       // 2. Delete from server if numeric / server ID
       try {

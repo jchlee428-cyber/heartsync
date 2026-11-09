@@ -126,6 +126,28 @@ export const FEEDBACK_TAG_LABELS: Record<string, string> = {
 
 const REVIEWS_STORAGE_KEY = "heartsync_user_reviews";
 const MY_REVIEW_IDS_KEY = "heartsync_my_review_ids";
+const DELETED_REVIEW_IDS_KEY = "heartsync_deleted_review_ids";
+
+function getDeletedReviewIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(DELETED_REVIEW_IDS_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.map(String) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDeletedReviewIds(ids: Set<string>): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(DELETED_REVIEW_IDS_KEY, JSON.stringify(Array.from(ids)));
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Masks the middle character of a Korean/English name for privacy (e.g., "김지은" -> "김*은").
@@ -274,13 +296,18 @@ export async function submitUserReview(input: {
 }
 
 export async function deleteUserReview(reviewId: string): Promise<void> {
+  const idStr = String(reviewId);
+  const deletedSet = getDeletedReviewIds();
+  deletedSet.add(idStr);
+  saveDeletedReviewIds(deletedSet);
+
   const existing = loadLocalUserReviews();
-  const updated = existing.filter((r) => String(r.id) !== String(reviewId));
+  const updated = existing.filter((r) => String(r.id) !== idStr);
   saveLocalUserReviews(updated);
 
   try {
     const myIds = getMyReviewIds();
-    myIds.delete(String(reviewId));
+    myIds.delete(idStr);
     localStorage.setItem(MY_REVIEW_IDS_KEY, JSON.stringify(Array.from(myIds)));
   } catch {
     // Ignore
@@ -289,7 +316,7 @@ export async function deleteUserReview(reviewId: string): Promise<void> {
   window.dispatchEvent(new CustomEvent("heartsync:reviews-updated"));
 
   try {
-    await fetch(`/api/reviews?id=${encodeURIComponent(reviewId)}`, {
+    await fetch(`/api/reviews?id=${encodeURIComponent(idStr)}`, {
       method: "DELETE",
     });
   } catch {
@@ -299,29 +326,46 @@ export async function deleteUserReview(reviewId: string): Promise<void> {
 
 export async function syncReviewsFromServer(): Promise<UserReview[]> {
   try {
-    const res = await fetch("/api/reviews", {
-      method: "GET",
-      headers: { Accept: "application/json" },
-    });
-    if (!res.ok) return loadLocalUserReviews();
-    const data = await res.json();
-    const serverItems: UserReview[] = Array.isArray(data?.items) ? data.items : [];
+    const local = loadLocalUserReviews();
+    const localDeleted = Array.from(getDeletedReviewIds());
 
-    if (serverItems.length > 0) {
-      const local = loadLocalUserReviews();
-      const map = new Map<string, UserReview>();
-      [...local, ...serverItems].forEach((r) => {
-        if (r && r.id && r.text) {
-          map.set(String(r.id), { ...r, isDefault: false });
-        }
-      });
-      const merged = Array.from(map.values()).sort(
-        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
-      );
-      saveLocalUserReviews(merged);
-      return merged;
-    }
-    return loadLocalUserReviews();
+    const res = await fetch("/api/reviews", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        syncItems: local,
+        deletedIds: localDeleted,
+      }),
+    });
+    if (!res.ok) return local;
+    const data = await res.json();
+    const serverItems: UserReview[] = Array.isArray(data?.items)
+      ? data.items
+      : [];
+    const serverDeleted: string[] = Array.isArray(data?.deletedIds)
+      ? data.deletedIds.map(String)
+      : localDeleted;
+
+    const deletedSet = new Set([...localDeleted, ...serverDeleted]);
+    saveDeletedReviewIds(deletedSet);
+
+    const map = new Map<string, UserReview>();
+    [...serverItems, ...local].forEach((r) => {
+      if (r && r.id && r.text && !deletedSet.has(String(r.id))) {
+        map.set(String(r.id), { ...r, isDefault: false });
+      }
+    });
+    const merged = Array.from(map.values()).sort(
+      (a, b) =>
+        new Date(b.created_at || 0).getTime() -
+        new Date(a.created_at || 0).getTime()
+    );
+    saveLocalUserReviews(merged);
+    window.dispatchEvent(new CustomEvent("heartsync:reviews-updated"));
+    return merged;
   } catch {
     return loadLocalUserReviews();
   }

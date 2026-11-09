@@ -4,6 +4,7 @@ import { Heart, Mail, Sparkles, ArrowLeft, Loader2, ShieldCheck, CheckCircle2 } 
 import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import { getDeterministicUserIdentity, syncUserDataWithCloud } from "@/lib/userSync";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -51,15 +52,27 @@ export default function LoginPage() {
       let token: string | null = null;
       let user: any = null;
 
-      // 1. Attempt backend social-login
+      const isTargetAdmin =
+        fromUrl.startsWith("/admin") ||
+        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.kr" ||
+        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.co.kr";
+
+      const deterministic = getDeterministicUserIdentity(
+        provider,
+        extraData?.email || (provider === "email" ? email : undefined),
+        extraData?.name || (provider === "email" ? name : undefined),
+        isTargetAdmin
+      );
+
+      // 1. Attempt backend social-login with deterministic email so PC & Mobile match
       try {
         const response = await fetch("/api/v1/auth/social-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider,
-            email: extraData?.email || (provider === "email" ? email : undefined),
-            name: extraData?.name || (provider === "email" ? name : undefined),
+            email: deterministic.email,
+            name: deterministic.name,
           }),
         });
 
@@ -72,30 +85,14 @@ export default function LoginPage() {
         console.warn("Backend offline or sleeping, using instant local session", networkErr);
       }
 
-      const isTargetAdmin =
-        fromUrl.startsWith("/admin") ||
-        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.kr" ||
-        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.co.kr";
-
-      // 2. Graceful fallback: If backend is deploying or sleeping, generate instant session
+      // 2. Graceful fallback: If backend is deploying or sleeping, generate deterministic session
       if (!token || !user) {
-        const fallbackName =
-          extraData?.name ||
-          (provider === "email"
-            ? name || (isTargetAdmin ? "HeartSync 총괄 관리자" : "회원")
-            : `${providerNames[provider] || ""} 회원`);
-        const fallbackEmail =
-          extraData?.email ||
-          (provider === "email"
-            ? email
-            : `${provider}_${Date.now().toString().slice(-4)}@heartsync.kr`);
-
         token = `hs_session_${Date.now()}`;
         user = {
-          id: isTargetAdmin ? "admin_heartsync_root" : `usr_${provider}_${Date.now()}`,
-          name: fallbackName,
-          email: fallbackEmail,
-          role: isTargetAdmin ? "admin" : "user",
+          id: deterministic.id,
+          name: deterministic.name,
+          email: deterministic.email,
+          role: deterministic.role,
           last_login: new Date().toISOString(),
         };
       } else if (isTargetAdmin && user) {
@@ -105,6 +102,9 @@ export default function LoginPage() {
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("isLougOutManual", "false");
+
+      // Synchronize user diagnoses, reports, and payment history across PC & Mobile
+      await syncUserDataWithCloud(user.email || user.id);
 
       toast.success(
         `💕 ${providerNames[provider] || ""} 간편 로그인이 완료되었습니다!`,

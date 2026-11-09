@@ -11,6 +11,7 @@ import DailyRoutineCard from "@/components/DailyRoutineCard";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 import Footer from "@/components/Footer";
 import { analyzeDiagnosisAnswers } from "@/lib/diagnosisAnalysis";
+import { syncUserDataWithCloud, fetchRemoteDiagnosisById } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -536,6 +537,21 @@ export default function ResultPage() {
       // Backend check fallback
     }
 
+    // Sync cloud plan & orders across PC and Mobile
+    try {
+      const synced = await syncUserDataWithCloud();
+      if (
+        synced.activePlan &&
+        synced.activePlan.is_active &&
+        synced.activePlan.status === "paid" &&
+        synced.activePlan.plan_type !== "free"
+      ) {
+        setHasPaidPlan(true);
+        setCheckingPlan(false);
+        return;
+      }
+    } catch {}
+
     // Check confirmed local active plan if present
     try {
       const activePlanRaw = localStorage.getItem("heartsync_active_plan");
@@ -581,6 +597,7 @@ export default function ResultPage() {
         payment_method: "가상 테스트 결제 (1초 잠금해제)",
         paid_at: new Date().toISOString(),
       }));
+      await syncUserDataWithCloud();
     } catch {}
 
     try {
@@ -648,6 +665,24 @@ export default function ResultPage() {
           try {
             data = JSON.parse(local);
           } catch {}
+        }
+      }
+
+      if (!data || !data.ai_report) {
+        // Also check cloud sync for cross-device report access (PC <-> Mobile)
+        const remoteDiag = await fetchRemoteDiagnosisById(id!);
+        if (remoteDiag) {
+          data = {
+            ...data,
+            ...remoteDiag,
+            ai_report: remoteDiag.ai_report || data?.ai_report || "",
+          };
+        } else if (!data) {
+          const synced = await syncUserDataWithCloud();
+          const matched = synced.diagnoses.find(
+            (d: any) => String(d.id) === String(id)
+          );
+          if (matched) data = matched;
         }
       }
 
@@ -791,8 +826,19 @@ ${topWeakLines}
           parsed.ai_report = reportText;
           localStorage.setItem(`heartsync_diagnosis_${id}`, JSON.stringify(parsed));
           localStorage.setItem("heartsync_last_diagnosis", JSON.stringify(parsed));
+
+          const listRaw = localStorage.getItem("heartsync_local_diagnoses") || "[]";
+          const list = JSON.parse(listRaw);
+          if (Array.isArray(list)) {
+            const updatedList = list.map((d: any) =>
+              String(d?.id) === String(id) ? { ...d, ai_report: reportText } : d
+            );
+            localStorage.setItem("heartsync_local_diagnoses", JSON.stringify(updatedList));
+          }
         } catch {}
       }
+
+      await syncUserDataWithCloud();
 
       try {
         await client.entities.diagnoses.update({

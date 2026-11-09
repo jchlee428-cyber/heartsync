@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import { normalizeUpgradeOrders } from "@/lib/planUpgrade";
+import { syncUserDataWithCloud } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -105,6 +106,7 @@ export default function PaymentHistoryPage() {
 
     if (currentUser && !isLoggedOut) {
       setUser(currentUser);
+      await syncUserDataWithCloud(currentUser.email || currentUser.id);
     }
 
     await Promise.all([loadOrders(), loadActivePlan()]).catch(() => {});

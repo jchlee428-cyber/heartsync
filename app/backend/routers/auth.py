@@ -472,22 +472,21 @@ async def social_login(
     if payload.email and payload.email.strip():
         user_email = payload.email.strip().lower()
     else:
-        pseudo_id = payload.provider_id or uuid.uuid4().hex[:8]
-        user_email = f"{provider}_{pseudo_id}@heartsync.kr"
+        user_email = f"{provider}_member@heartsync.kr"
 
     if payload.name and payload.name.strip():
         user_name = payload.name.strip()
     else:
         user_name = f"{provider_label} 회원"
 
-    # Derive consistent platform_sub (User.id)
+    # Derive consistent platform_sub (User.id) across PC & Mobile
     if payload.provider_id and payload.provider_id.strip():
         platform_sub = f"{provider}_{payload.provider_id.strip()}"
     elif payload.email and payload.email.strip():
         email_hash = hashlib.sha256(user_email.encode("utf-8")).hexdigest()[:16]
         platform_sub = f"{provider}_{email_hash}"
     else:
-        platform_sub = f"{provider}_{uuid.uuid4().hex[:12]}"
+        platform_sub = f"usr_{provider}_sync"
 
     auth_service = AuthService(db)
     user = await auth_service.get_or_create_user(

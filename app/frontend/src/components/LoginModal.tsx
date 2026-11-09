@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Heart, Mail, Sparkles, User, ShieldCheck, ArrowRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { getDeterministicUserIdentity, syncUserDataWithCloud } from "@/lib/userSync";
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -44,15 +45,22 @@ export default function LoginModal({
       let token: string | null = null;
       let user: any = null;
 
-      // 1. Attempt backend social-login
+      const deterministic = getDeterministicUserIdentity(
+        provider,
+        extraData?.email || (provider === "email" ? email : undefined),
+        extraData?.name || (provider === "email" ? name : undefined),
+        false
+      );
+
+      // 1. Attempt backend social-login with deterministic email so PC & Mobile match
       try {
         const response = await fetch("/api/v1/auth/social-login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             provider,
-            email: extraData?.email || (provider === "email" ? email : undefined),
-            name: extraData?.name || (provider === "email" ? name : undefined),
+            email: deterministic.email,
+            name: deterministic.name,
           }),
         });
 
@@ -65,25 +73,14 @@ export default function LoginModal({
         console.warn("Backend offline or sleeping, using instant local session", networkErr);
       }
 
-      // 2. Graceful fallback: If backend is deploying or sleeping, generate instant session
+      // 2. Graceful fallback: If backend is deploying or sleeping, generate deterministic session
       if (!token || !user) {
-        const fallbackName =
-          extraData?.name ||
-          (provider === "email"
-            ? name || "회원"
-            : `${providerNames[provider] || ""} 회원`);
-        const fallbackEmail =
-          extraData?.email ||
-          (provider === "email"
-            ? email
-            : `${provider}_${Date.now().toString().slice(-4)}@heartsync.kr`);
-
         token = `hs_session_${Date.now()}`;
         user = {
-          id: `usr_${provider}_${Date.now()}`,
-          name: fallbackName,
-          email: fallbackEmail,
-          role: "user",
+          id: deterministic.id,
+          name: deterministic.name,
+          email: deterministic.email,
+          role: deterministic.role,
           last_login: new Date().toISOString(),
         };
       }
@@ -91,6 +88,9 @@ export default function LoginModal({
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem("isLougOutManual", "false");
+
+      // Synchronize user diagnoses, reports, and payment history across PC & Mobile
+      await syncUserDataWithCloud(user.email || user.id);
 
       toast.success(
         `💕 ${providerNames[provider] || ""} 간편 로그인이 완료되었습니다!`,

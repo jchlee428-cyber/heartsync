@@ -7,6 +7,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import { getPlanTier, normalizeUpgradeOrders, PLAN_BASE_PRICES } from "@/lib/planUpgrade";
+import { syncUserDataWithCloud } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -93,6 +94,7 @@ export default function PaymentSuccessPage() {
       }));
       localStorage.setItem("heartsync_active_test_plan", plan);
       localStorage.setItem("heartsync_test_paid", "true");
+      void syncUserDataWithCloud();
     } catch (e) {
       console.warn("Failed to persist order locally:", e);
     }

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import LoginModal from "@/components/LoginModal";
 import { recordDiagnosisCompletion } from "@/lib/diagnosisCounter";
+import { syncUserDataWithCloud } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -1012,6 +1013,7 @@ export default function DiagnosisPage() {
       } catch {}
 
       recordDiagnosisCompletion(diagnosisId);
+      await syncUserDataWithCloud();
 
       // Draft deletion is non-critical
       try {
@@ -1042,6 +1044,7 @@ export default function DiagnosisPage() {
       localStorage.setItem(`heartsync_diagnosis_${localId}`, JSON.stringify(record));
       localStorage.setItem("heartsync_last_diagnosis", JSON.stringify(record));
       recordDiagnosisCompletion(localId);
+      await syncUserDataWithCloud();
       setPendingResultId(String(localId));
       setShowInterstitial(true);
     } finally {

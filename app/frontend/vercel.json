@@ -17,6 +17,10 @@
       "destination": "/api/admin-metrics"
     },
     {
+      "source": "/api/user-sync",
+      "destination": "/api/user-sync"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://heartsync-5tbs.onrender.com/api/:match*"
     },
