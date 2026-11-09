@@ -1,7 +1,32 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, Star, Sparkles, Search, FileText, MessageSquare, Quote } from "lucide-react";
+import {
+  ArrowRight,
+  Star,
+  Sparkles,
+  Search,
+  FileText,
+  MessageSquare,
+  Quote,
+  PenLine,
+  X,
+  Check,
+  Trash2,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { createClient } from "@metagptx/web-sdk";
+import { toast } from "sonner";
+import {
+  UserReview,
+  DEFAULT_REVIEWS,
+  FEEDBACK_TAG_OPTIONS,
+  FEEDBACK_TAG_LABELS,
+  formatMaskedAuthor,
+  getCombinedReviews,
+  getMyReviewIds,
+  submitUserReview,
+  deleteUserReview,
+  syncReviewsFromServer,
+} from "@/lib/reviewStore";
 
 const client = createClient();
 
@@ -25,44 +50,16 @@ const solutions = [
   },
 ];
 
-const defaultReviews = [
-  {
-    text: "감정에 치우치지 않고 객관적으로 관계를 돌아볼 수 있어 정말 큰 도움이 되었습니다. 덕분에 더 나은 결정을 내릴 수 있었어요.",
-    author: "김*은 (32세, 회사원)",
-    rating: 5,
-    isDefault: true,
-  },
-  {
-    text: "남편과 대화가 안 통한다고만 생각했는데, AI 분석을 통해 서로의 소통 패턴을 이해하게 되었어요. 지금은 훨씬 나아졌습니다.",
-    author: "이*정 (38세, 주부)",
-    rating: 5,
-    isDefault: true,
-  },
-  {
-    text: "이별 직전이었는데 HeartSync 덕분에 문제의 핵심을 파악할 수 있었어요. 지금은 더 단단한 관계가 되었습니다.",
-    author: "박*호 (29세, 개발자)",
-    rating: 5,
-    isDefault: true,
-  },
+const QUICK_PROFILE_PRESETS = [
+  "20대, 연인",
+  "30대, 연인",
+  "30대, 부부",
+  "40대, 부부",
+  "30대, 회사원",
+  "30대, 주부",
 ];
 
-const feedbackTagLabels: Record<string, string> = {
-  helpful: "💡 도움이 됐어요",
-  empathetic: "🤗 공감해줘요",
-  practical: "🎯 실용적이에요",
-  professional: "📚 전문적이에요",
-  warm: "☀️ 따뜻해요",
-  more_detail: "📝 더 구체적이면 좋겠어요",
-};
-
-interface UserReview {
-  text: string;
-  author: string;
-  rating: number;
-  tags?: string[];
-  isDefault?: boolean;
-  created_at?: string;
-}
+const RATING_LABELS = ["", "별로예요", "아쉬워요", "보통이에요", "좋아요 😊", "최고예요! 💕"];
 
 const processSteps = [
   {
@@ -91,11 +88,14 @@ const processSteps = [
   },
 ];
 
-function formatRelativeDate(dateStr: string): string {
+function formatRelativeDate(dateStr?: string): string {
   if (!dateStr) return "";
   const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "";
   const now = new Date();
   const diffMs = now.getTime() - d.getTime();
+  const diffMin = Math.floor(diffMs / 60000);
+  if (diffMin < 5) return "방금 전";
   const diffDay = Math.floor(diffMs / 86400000);
   if (diffDay < 1) return "오늘";
   if (diffDay < 7) return `${diffDay}일 전`;
@@ -105,15 +105,59 @@ function formatRelativeDate(dateStr: string): string {
 
 export default function SolutionSection() {
   const navigate = useNavigate();
-  const [allReviews, setAllReviews] = useState<UserReview[]>(defaultReviews);
-  const [avgRating, setAvgRating] = useState<number | null>(null);
-  const [totalCount, setTotalCount] = useState(0);
+  const [allReviews, setAllReviews] = useState<UserReview[]>(DEFAULT_REVIEWS);
+  const [avgRating, setAvgRating] = useState<number>(5.0);
+  const [totalCount, setTotalCount] = useState<number>(DEFAULT_REVIEWS.length);
+  const [myReviewIds, setMyReviewIds] = useState<Set<string>>(() => getMyReviewIds());
+
+  // Review Write Form state
+  const [isWriting, setIsWriting] = useState(false);
+  const [rating, setRating] = useState(5);
+  const [hoverRating, setHoverRating] = useState(0);
+  const [selectedTags, setSelectedTags] = useState<string[]>(["helpful"]);
+  const [authorName, setAuthorName] = useState("");
+  const [profileInfo, setProfileInfo] = useState("");
+  const [reviewText, setReviewText] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    loadUserReviews();
+    // Pre-fill author name if user is logged in
+    try {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        const parsed = JSON.parse(storedUser);
+        if (parsed?.name && parsed.name !== "회원") {
+          setAuthorName(parsed.name);
+        }
+      }
+    } catch {
+      // Ignore
+    }
+
+    refreshReviews();
+
+    const handleUpdated = () => refreshReviews();
+    window.addEventListener("heartsync:reviews-updated", handleUpdated);
+    window.addEventListener("storage", handleUpdated);
+    return () => {
+      window.removeEventListener("heartsync:reviews-updated", handleUpdated);
+      window.removeEventListener("storage", handleUpdated);
+    };
   }, []);
 
-  const loadUserReviews = async () => {
+  const refreshReviews = async () => {
+    // 1. Immediate render from local store + default reviews
+    const initial = getCombinedReviews();
+    setAllReviews(initial.allReviews);
+    setAvgRating(initial.avgRating);
+    setTotalCount(initial.totalCount);
+    setMyReviewIds(getMyReviewIds());
+
+    // 2. Sync from serverless /api/reviews
+    const serverItems = await syncReviewsFromServer();
+
+    // 3. Also try legacy backend chat_ratings if reachable
+    let dbReviews: UserReview[] = [];
     try {
       const res = await client.entities.chat_ratings.queryAll({
         query: {},
@@ -121,11 +165,11 @@ export default function SolutionSection() {
         limit: 50,
       });
       const items = res.data?.items || [];
-
-      const userReviews: UserReview[] = items
+      dbReviews = items
         .filter((r: any) => r.comment && r.comment.trim().length > 0 && r.rating >= 3)
-        .slice(0, 10)
+        .slice(0, 20)
         .map((r: any) => ({
+          id: `db_${r.id}`,
           text: r.comment.trim(),
           author: "HeartSync 사용자",
           rating: r.rating || 5,
@@ -133,21 +177,84 @@ export default function SolutionSection() {
           isDefault: false,
           created_at: r.created_at || "",
         }));
-
-      if (items.length > 0) {
-        const sum = items.reduce((acc: number, r: any) => acc + (r.rating || 0), 0);
-        setAvgRating(sum / items.length);
-        setTotalCount(items.length);
-      }
-
-      if (userReviews.length > 0) {
-        const combined = [...userReviews, ...defaultReviews];
-        setAllReviews(combined);
-      }
     } catch {
-      // Non-critical: keep default reviews
+      // Backend offline — use serverless & local reviews
+    }
+
+    const combined = getCombinedReviews([...serverItems, ...dbReviews]);
+    setAllReviews(combined.allReviews);
+    setAvgRating(combined.avgRating);
+    setTotalCount(combined.totalCount);
+    setMyReviewIds(getMyReviewIds());
+  };
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tagId) ? prev.filter((t) => t !== tagId) : [...prev, tagId]
+    );
+  };
+
+  const handleSubmitReview = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmedText = reviewText.trim();
+
+    if (rating < 1) {
+      toast.warning("별점을 선택해주세요.");
+      return;
+    }
+    if (trimmedText.length < 5) {
+      toast.warning("후기 내용을 5자 이상 작성해주세요.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await submitUserReview({
+        text: trimmedText,
+        authorName: authorName.trim() || "익명",
+        profileInfo: profileInfo.trim(),
+        rating,
+        tags: selectedTags,
+      });
+
+      // Best-effort sync to backend chat_ratings if logged in
+      try {
+        const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+        await client.entities.chat_ratings.create({
+          data: {
+            session_id: 0,
+            rating,
+            feedback_tags: selectedTags.join(","),
+            comment: trimmedText,
+            created_at: now,
+          },
+        });
+      } catch {
+        // Non-critical
+      }
+
+      toast.success("소중한 실제 사용 후기가 등록되었습니다! 💕");
+      setReviewText("");
+      setIsWriting(false);
+      await refreshReviews();
+    } catch {
+      toast.error("후기 등록 중 오류가 발생했습니다.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  const handleDeleteReview = async (id?: string) => {
+    if (!id) return;
+    await deleteUserReview(id);
+    toast.info("작성한 후기가 삭제되었습니다.");
+    await refreshReviews();
+  };
+
+  const previewAuthor = formatMaskedAuthor(
+    authorName.trim() || "익명",
+    profileInfo.trim()
+  );
 
   return (
     <>
@@ -201,10 +308,13 @@ export default function SolutionSection() {
           HeartSync를 경험한 분들의 이야기
         </p>
 
-        {/* Average Rating Summary */}
-        {avgRating !== null && totalCount > 0 && (
-          <div className="flex items-center justify-center gap-3 mb-6" aria-label={`평균 평점 ${avgRating.toFixed(1)}점, ${totalCount}명 평가`}>
-            <div className="flex items-center gap-1" aria-hidden="true">
+        {/* Average Rating Summary & Write Button */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 mb-5 bg-pink-50/60 border border-pink-100 rounded-2xl px-4 py-3">
+          <div
+            className="flex items-center gap-2"
+            aria-label={`평균 평점 ${avgRating.toFixed(1)}점, ${totalCount}명 참여`}
+          >
+            <div className="flex items-center gap-0.5" aria-hidden="true">
               {[1, 2, 3, 4, 5].map((s) => (
                 <Star
                   key={s}
@@ -216,73 +326,280 @@ export default function SolutionSection() {
                 />
               ))}
             </div>
-            <span className="text-sm font-bold text-gray-800">{avgRating.toFixed(1)}</span>
-            <span className="text-xs text-gray-400">({totalCount}명 평가)</span>
+            <span className="text-sm font-extrabold text-gray-900">{avgRating.toFixed(1)}</span>
+            <span className="text-xs text-gray-500">({totalCount}개 후기)</span>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsWriting((prev) => !prev)}
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-bold shadow-sm transition-all ${
+              isWriting
+                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-gradient-to-r from-pink-500 to-rose-500 text-white hover:shadow-md hover:scale-[1.02]"
+            }`}
+          >
+            {isWriting ? (
+              <>
+                <X className="w-3.5 h-3.5" />
+                작성 닫기
+              </>
+            ) : (
+              <>
+                <PenLine className="w-3.5 h-3.5" />
+                실제 사용 후기 작성하기
+              </>
+            )}
+          </button>
+        </div>
+
+        {/* Interactive Review Write Form */}
+        {isWriting && (
+          <form
+            onSubmit={handleSubmitReview}
+            className="bg-white rounded-2xl p-5 mb-6 shadow-lg border-2 border-pink-200 animate-fade-in space-y-4"
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-gray-900 flex items-center gap-1.5">
+                  <PenLine className="w-4 h-4 text-pink-500" />
+                  실제 사용 후기 남기기
+                </h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">
+                  작성하신 후기는 다른 커플들에게 큰 힘이 됩니다 💕
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWriting(false)}
+                className="p-1 text-gray-400 hover:text-gray-600 rounded-full"
+                aria-label="후기 작성 닫기"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* 1. Star Rating */}
+            <div className="text-center py-1">
+              <p className="text-xs font-semibold text-gray-600 mb-2">만족도를 선택해주세요</p>
+              <div className="flex items-center justify-center gap-1.5">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                    className="p-1 transition-transform hover:scale-110 focus:outline-none"
+                    aria-label={`${star}점`}
+                  >
+                    <Star
+                      className={`w-7 h-7 transition-colors ${
+                        star <= (hoverRating || rating)
+                          ? "fill-amber-400 text-amber-400"
+                          : "text-gray-200"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs font-bold text-pink-600 mt-1">
+                {RATING_LABELS[hoverRating || rating]}
+              </p>
+            </div>
+
+            {/* 2. Feedback Tags */}
+            <div>
+              <p className="text-xs font-semibold text-gray-700 mb-2">
+                어떤 점이 좋았나요? <span className="text-gray-400 font-normal">(다중 선택)</span>
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {FEEDBACK_TAG_OPTIONS.map((tag) => {
+                  const active = selectedTags.includes(tag.id);
+                  return (
+                    <button
+                      key={tag.id}
+                      type="button"
+                      onClick={() => toggleTag(tag.id)}
+                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium border transition-all ${
+                        active
+                          ? "bg-pink-50 border-pink-300 text-pink-700 font-bold shadow-sm"
+                          : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100"
+                      }`}
+                    >
+                      <span>{tag.emoji}</span>
+                      <span>{tag.label}</span>
+                      {active && <Check className="w-3 h-3 text-pink-600" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 3. Author Name & Profile Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  이름 또는 닉네임 <span className="text-gray-400 font-normal">(자동 마스킹)</span>
+                </label>
+                <input
+                  type="text"
+                  value={authorName}
+                  onChange={(e) => setAuthorName(e.target.value)}
+                  placeholder="예: 김지은"
+                  maxLength={20}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs focus:outline-none focus:border-pink-400 focus:bg-white transition-all"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-semibold text-gray-600 mb-1">
+                  연령대 / 소개 <span className="text-gray-400 font-normal">(선택)</span>
+                </label>
+                <input
+                  type="text"
+                  value={profileInfo}
+                  onChange={(e) => setProfileInfo(e.target.value)}
+                  placeholder="예: 32세, 회사원"
+                  maxLength={25}
+                  className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs focus:outline-none focus:border-pink-400 focus:bg-white transition-all"
+                />
+              </div>
+            </div>
+
+            {/* Quick Profile Presets */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] text-gray-400 mr-1">빠른 선택:</span>
+              {QUICK_PROFILE_PRESETS.map((preset) => (
+                <button
+                  key={preset}
+                  type="button"
+                  onClick={() => setProfileInfo(preset)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] border transition-colors ${
+                    profileInfo === preset
+                      ? "bg-pink-100 border-pink-300 text-pink-700 font-bold"
+                      : "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
+            </div>
+
+            {/* 4. Review Textarea */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-[11px] font-semibold text-gray-600">
+                  후기 내용 <span className="text-pink-500">*</span>
+                </label>
+                <span className="text-[10px] text-gray-400">{reviewText.length}/500자</span>
+              </div>
+              <textarea
+                value={reviewText}
+                onChange={(e) => setReviewText(e.target.value)}
+                placeholder="50문항 관계 진단이나 AI 코치 상담을 통해 느낀 점, 관계에 도움이 되었던 부분을 자유롭게 작성해주세요."
+                rows={3}
+                maxLength={500}
+                className="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-2.5 text-xs leading-relaxed focus:outline-none focus:border-pink-400 focus:bg-white focus:ring-2 focus:ring-pink-100 transition-all"
+              />
+            </div>
+
+            {/* Preview & Submit */}
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] text-gray-400">
+                표시 작성자: <strong className="text-gray-600">{previewAuthor}</strong>
+              </span>
+              <button
+                type="submit"
+                disabled={isSubmitting || reviewText.trim().length < 5}
+                className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-xs shadow-md hover:shadow-lg hover:scale-[1.02] transition-all disabled:opacity-40 disabled:scale-100"
+              >
+                <PenLine className="w-3.5 h-3.5" />
+                {isSubmitting ? "등록 중..." : "후기 등록하기"}
+              </button>
+            </div>
+          </form>
         )}
 
         <div className="space-y-4" role="list" aria-label="사용자 후기 목록">
-          {allReviews.map((review, idx) => (
-            <article
-              key={idx}
-              className={`bg-white rounded-2xl p-5 shadow-md border hover:shadow-lg transition-shadow duration-300 ${
-                review.isDefault ? "border-gray-50" : "border-pink-100"
-              }`}
-              role="listitem"
-            >
-              {/* Rating Stars */}
-              <div className="flex items-center gap-0.5 mb-3" aria-label={`평점 ${review.rating}점`}>
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star
-                    key={i}
-                    className={`w-4 h-4 ${
-                      i < review.rating
-                        ? "text-amber-400 fill-amber-400"
-                        : "text-gray-200"
-                    }`}
-                    aria-hidden="true"
-                  />
-                ))}
-              </div>
-
-              {/* Review Text */}
-              <blockquote className="text-gray-600 text-sm leading-relaxed mb-3">
-                <Quote className="w-3.5 h-3.5 text-pink-300 inline-block mr-1 -mt-0.5" aria-hidden="true" />
-                {review.text}
-              </blockquote>
-
-              {/* Feedback Tags */}
-              {!review.isDefault && review.tags && review.tags.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-2" aria-label="피드백 태그">
-                  {review.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center px-2 py-0.5 bg-pink-50 text-pink-600 text-[10px] font-medium rounded-full"
+          {allReviews.map((review, idx) => {
+            const isMine = Boolean(review.id && myReviewIds.has(String(review.id)));
+            return (
+              <article
+                key={review.id || idx}
+                className={`bg-white rounded-2xl p-5 shadow-md border hover:shadow-lg transition-shadow duration-300 ${
+                  review.isDefault ? "border-gray-50" : "border-pink-100"
+                }`}
+                role="listitem"
+              >
+                {/* Rating Stars & Optional Delete */}
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-0.5" aria-label={`평점 ${review.rating}점`}>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={`w-4 h-4 ${
+                          i < review.rating
+                            ? "text-amber-400 fill-amber-400"
+                            : "text-gray-200"
+                        }`}
+                        aria-hidden="true"
+                      />
+                    ))}
+                  </div>
+                  {isMine && review.id && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteReview(review.id)}
+                      className="inline-flex items-center gap-1 text-[10px] text-gray-400 hover:text-red-500 transition-colors"
+                      title="내 후기 삭제"
                     >
-                      {feedbackTagLabels[tag] || tag}
-                    </span>
-                  ))}
+                      <Trash2 className="w-3 h-3" />
+                      삭제
+                    </button>
+                  )}
                 </div>
-              )}
 
-              {/* Author & Date */}
-              <footer className="flex items-center justify-between">
-                <p className="text-gray-400 text-xs font-medium">
-                  {review.author}
-                </p>
-                {!review.isDefault && review.created_at && (
-                  <time className="text-[10px] text-gray-300" dateTime={review.created_at}>
-                    {formatRelativeDate(review.created_at)}
-                  </time>
+                {/* Review Text */}
+                <blockquote className="text-gray-600 text-sm leading-relaxed mb-3">
+                  <Quote className="w-3.5 h-3.5 text-pink-300 inline-block mr-1 -mt-0.5" aria-hidden="true" />
+                  {review.text}
+                </blockquote>
+
+                {/* Feedback Tags */}
+                {!review.isDefault && review.tags && review.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-2" aria-label="피드백 태그">
+                    {review.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center px-2 py-0.5 bg-pink-50 text-pink-600 text-[10px] font-medium rounded-full"
+                      >
+                        {FEEDBACK_TAG_LABELS[tag] || tag}
+                      </span>
+                    ))}
+                  </div>
                 )}
-                {!review.isDefault && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-600 text-[9px] font-bold rounded-full">
-                    ✅ 인증 후기
-                  </span>
-                )}
-              </footer>
-            </article>
-          ))}
+
+                {/* Author & Date */}
+                <footer className="flex items-center justify-between">
+                  <p className="text-gray-400 text-xs font-medium">
+                    {review.author}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    {!review.isDefault && review.created_at && (
+                      <time className="text-[10px] text-gray-300" dateTime={review.created_at}>
+                        {formatRelativeDate(review.created_at)}
+                      </time>
+                    )}
+                    {!review.isDefault && (
+                      <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-green-50 text-green-600 text-[9px] font-bold rounded-full">
+                        ✅ 인증 후기
+                      </span>
+                    )}
+                  </div>
+                </footer>
+              </article>
+            );
+          })}
         </div>
       </section>
 

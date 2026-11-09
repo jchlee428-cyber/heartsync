@@ -9,6 +9,10 @@
       "destination": "/api/diagnosis-count"
     },
     {
+      "source": "/api/reviews",
+      "destination": "/api/reviews"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://heartsync-5tbs.onrender.com/api/:match*"
     },

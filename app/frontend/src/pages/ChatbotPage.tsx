@@ -5,6 +5,7 @@ import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import { analyzeDiagnosisAnswers } from "@/lib/diagnosisAnalysis";
 import { generateContextualCounselingReply } from "@/lib/counselingEngine";
+import { submitUserReview, FEEDBACK_TAG_LABELS } from "@/lib/reviewStore";
 
 const client = createClient();
 
@@ -964,10 +965,6 @@ export default function ChatbotPage() {
   };
 
   const handleOpenRating = () => {
-    if (!currentSessionId || !isLoggedIn) {
-      toast.info("로그인 후 상담을 진행하면 평가할 수 있어요.");
-      return;
-    }
     if (hasRated) {
       toast.info("이미 이 상담에 대해 평가를 완료했어요.");
       return;
@@ -985,23 +982,55 @@ export default function ChatbotPage() {
       toast.error("별점을 선택해주세요.");
       return;
     }
-    if (!currentSessionId) return;
 
     setIsSubmittingRating(true);
     try {
-      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-      await client.entities.chat_ratings.create({
-        data: {
-          session_id: currentSessionId,
-          rating: ratingValue,
-          feedback_tags: ratingTags.join(","),
-          comment: ratingComment.trim(),
-          created_at: now,
-        },
+      let userName = "익명";
+      try {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          const parsed = JSON.parse(storedUser);
+          if (parsed?.name && parsed.name !== "회원") userName = parsed.name;
+        }
+      } catch {
+        // Ignore
+      }
+
+      const trimmedComment = ratingComment.trim();
+      const reviewContent =
+        trimmedComment ||
+        (ratingTags.length > 0
+          ? `AI 관계 코칭 상담 후기 (${ratingTags.map((t) => FEEDBACK_TAG_LABELS[t] || t).join(", ")})`
+          : "AI 관계 코칭 상담이 관계를 돌아보는 데 큰 도움이 되었습니다.");
+
+      await submitUserReview({
+        text: reviewContent,
+        authorName: userName,
+        profileInfo: selectedTopic ? `${selectedTopic.label} 상담` : "AI 코칭 이용자",
+        rating: ratingValue,
+        tags: ratingTags,
       });
+
+      if (currentSessionId) {
+        try {
+          const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+          await client.entities.chat_ratings.create({
+            data: {
+              session_id: currentSessionId,
+              rating: ratingValue,
+              feedback_tags: ratingTags.join(","),
+              comment: trimmedComment,
+              created_at: now,
+            },
+          });
+        } catch {
+          // Local & serverless review store already saved
+        }
+      }
+
       setHasRated(true);
       setShowRatingModal(false);
-      toast.success("소중한 피드백 감사합니다! 💕");
+      toast.success("소중한 후기가 등록되었습니다! 메인 화면 후기란에서도 확인하실 수 있어요 💕");
     } catch {
       toast.error("평가 저장에 실패했습니다.");
     } finally {
