@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 
 from core.database import get_db
 from dependencies.auth import get_current_user
@@ -235,3 +235,30 @@ async def submit_mini_checkin(
         logger.error(f"Error submitting mini checkin: {e}")
         await db.rollback()
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.get("/public-count")
+async def get_public_diagnosis_count(
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Returns the public diagnosis completion counter starting from base 10,000.
+    """
+    base_count = 10000
+    try:
+        stmt = select(func.count(Diagnoses.id))
+        res = await db.execute(stmt)
+        completed_count = int(res.scalar() or 0)
+        return {
+            "baseCount": base_count,
+            "completedCount": completed_count,
+            "totalCount": base_count + completed_count,
+        }
+    except Exception as e:
+        logger.warning(f"Error reading public diagnosis count: {e}")
+        return {
+            "baseCount": base_count,
+            "completedCount": 0,
+            "totalCount": base_count,
+        }
+

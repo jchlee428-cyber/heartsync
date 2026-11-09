@@ -10,6 +10,7 @@ import { Heart, Sparkles, CheckCircle, Clock, ArrowRight, Loader2 } from "lucide
 import { toast } from "sonner";
 import { createClient } from "@metagptx/web-sdk";
 import confetti from "canvas-confetti";
+import { recordDiagnosisCompletion } from "@/lib/diagnosisCounter";
 
 const client = createClient();
 
@@ -85,6 +86,7 @@ export default function MiniDiagnosisModal({ isOpen, onClose, onSuccess }: MiniD
           "heartsync_mini_checkins",
           JSON.stringify([...(Array.isArray(existingList) ? existingList : []), newRecord])
         );
+        recordDiagnosisCompletion(recordId);
       } catch {
         // ignore storage error
       }

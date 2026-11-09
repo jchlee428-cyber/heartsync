@@ -5,6 +5,7 @@ import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import LoginModal from "@/components/LoginModal";
+import { recordDiagnosisCompletion } from "@/lib/diagnosisCounter";
 
 const client = createClient();
 
@@ -1010,6 +1011,8 @@ export default function DiagnosisPage() {
         localStorage.setItem("heartsync_local_diagnoses", JSON.stringify(list));
       } catch {}
 
+      recordDiagnosisCompletion(diagnosisId);
+
       // Draft deletion is non-critical
       try {
         await deleteDraft();
@@ -1038,6 +1041,7 @@ export default function DiagnosisPage() {
       };
       localStorage.setItem(`heartsync_diagnosis_${localId}`, JSON.stringify(record));
       localStorage.setItem("heartsync_last_diagnosis", JSON.stringify(record));
+      recordDiagnosisCompletion(localId);
       setPendingResultId(String(localId));
       setShowInterstitial(true);
     } finally {

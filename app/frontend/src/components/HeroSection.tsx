@@ -1,30 +1,82 @@
 import { CheckCircle, ShieldCheck, ArrowRight } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  BASE_DIAGNOSIS_COUNT,
+  getTotalDiagnosisCount,
+  syncServerDiagnosisCount,
+} from "@/lib/diagnosisCounter";
 
 const HERO_IMAGE = "https://mgx-backend-cdn.metadl.com/generate/images/922264/2026-03-12/455930b8-16a1-4334-8961-f2e16ae2fa9f.png";
 
 export default function HeroSection() {
   const navigate = useNavigate();
-  const [count, setCount] = useState(0);
-  const targetCount = 12492;
+  const [targetCount, setTargetCount] = useState<number>(() => getTotalDiagnosisCount());
+  const [count, setCount] = useState<number>(BASE_DIAGNOSIS_COUNT);
 
   useEffect(() => {
-    const duration = 2000;
-    const steps = 60;
-    const increment = targetCount / steps;
-    let current = 0;
+    let isMounted = true;
+
+    const refreshCount = () => {
+      if (!isMounted) return;
+      setTargetCount(getTotalDiagnosisCount());
+    };
+
+    refreshCount();
+
+    syncServerDiagnosisCount().then((serverTotal) => {
+      if (isMounted && serverTotal >= BASE_DIAGNOSIS_COUNT) {
+        setTargetCount(serverTotal);
+      }
+    });
+
+    const handleCustomUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<{ totalCount?: number }>;
+      if (customEvent.detail?.totalCount) {
+        setTargetCount(customEvent.detail.totalCount);
+      } else {
+        refreshCount();
+      }
+    };
+
+    window.addEventListener("heartsync:diagnosis-count-updated", handleCustomUpdate);
+    window.addEventListener("storage", refreshCount);
+    window.addEventListener("focus", refreshCount);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener("heartsync:diagnosis-count-updated", handleCustomUpdate);
+      window.removeEventListener("storage", refreshCount);
+      window.removeEventListener("focus", refreshCount);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (count === targetCount) return;
+
+    const diff = targetCount - count;
+    if (diff <= 0) {
+      setCount(targetCount);
+      return;
+    }
+
+    const steps = Math.min(Math.max(diff, 1), 30);
+    const stepValue = Math.max(1, Math.ceil(diff / steps));
+    const intervalMs = Math.max(25, Math.floor(600 / steps));
+
+    let current = count;
     const timer = setInterval(() => {
-      current += increment;
+      current += stepValue;
       if (current >= targetCount) {
         setCount(targetCount);
         clearInterval(timer);
       } else {
-        setCount(Math.floor(current));
+        setCount(current);
       }
-    }, duration / steps);
+    }, intervalMs);
+
     return () => clearInterval(timer);
-  }, []);
+  }, [targetCount, count]);
 
   return (
     <section className="relative pt-14 overflow-hidden" aria-label="히어로 배너">
