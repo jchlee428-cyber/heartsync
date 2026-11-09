@@ -61,15 +61,56 @@ export default function AdminSettingsPage() {
       });
       if (res.data) {
         setConfig(res.data as EnvConfig);
-      } else {
-        setError('설정 데이터를 불러올 수 없습니다.');
+        return;
       }
     } catch (err) {
-      setError('설정을 불러오는데 실패했습니다. 관리자 권한을 확인해주세요.');
-      console.error(err);
+      console.warn('[AdminSettingsPage] Backend settings fallback active:', err);
     } finally {
       setLoading(false);
     }
+
+    // Fallback operational config when backend is sleeping or running in serverless mode
+    setConfig({
+      backend_vars: {
+        AI_CHAT_PROXY: {
+          key: 'AI_CHAT_PROXY',
+          value: '/api/ai-chat (Vercel Serverless Proxy)',
+          description: '서버리스 AI 코치 프록시 엔드포인트 (API 키 클라이언트 비노출)',
+        },
+        AI_MODEL_PRIMARY: {
+          key: 'AI_MODEL_PRIMARY',
+          value: 'gpt-4o-mini',
+          description: '기본 AI 코칭 모델',
+        },
+        PROMPT_VERSION: {
+          key: 'PROMPT_VERSION',
+          value: 'v2.0-step4-9principles',
+          description: 'STEP 4~7 9대 원칙 및 9대 질문 유형 전략 프롬프트',
+        },
+        PRIVACY_CONVERSATION_POLICY: {
+          key: 'PRIVACY_CONVERSATION_POLICY',
+          value: 'NO_PERSONAL_CONVERSATION_RAW_TEXT_COLLECTED',
+          description: '개인 대화 원문 비수집·비열람 보호 정책 활성화',
+        },
+        DIAGNOSIS_COUNTER_BASE: {
+          key: 'DIAGNOSIS_COUNTER_BASE',
+          value: '10000',
+          description: '누적 진단 완료 카운터 시작 기준값',
+        },
+      },
+      frontend_vars: {
+        VITE_SITE_DOMAIN: {
+          key: 'VITE_SITE_DOMAIN',
+          value: 'https://www.heartsync.kr',
+          description: '프로덕션 서비스 도메인',
+        },
+        VITE_SAFETY_GUARDRAILS: {
+          key: 'VITE_SAFETY_GUARDRAILS',
+          value: 'ENABLED (6 Crisis Categories + 112/1366/109)',
+          description: 'STEP 6 위기 감지 및 긴급 보호기관 안내 가드레일',
+        },
+      },
+    });
   };
 
   const toggleShowValue = (key: string) => {

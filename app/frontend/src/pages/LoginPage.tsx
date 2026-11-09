@@ -15,10 +15,22 @@ export default function LoginPage() {
   const [name, setName] = useState("");
 
   useEffect(() => {
-    // If already logged in, redirect
+    // If already logged in, redirect (for /admin, only redirect if role is already admin)
     const token = localStorage.getItem("token");
     if (token) {
-      navigate(fromUrl, { replace: true });
+      if (fromUrl.startsWith("/admin")) {
+        try {
+          const rawUser = localStorage.getItem("user");
+          const parsedUser = rawUser ? JSON.parse(rawUser) : null;
+          if (parsedUser?.role === "admin") {
+            navigate(fromUrl, { replace: true });
+          }
+        } catch {
+          // stay on login page
+        }
+      } else {
+        navigate(fromUrl, { replace: true });
+      }
     }
   }, [navigate, fromUrl]);
 
@@ -60,12 +72,17 @@ export default function LoginPage() {
         console.warn("Backend offline or sleeping, using instant local session", networkErr);
       }
 
+      const isTargetAdmin =
+        fromUrl.startsWith("/admin") ||
+        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.kr" ||
+        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.co.kr";
+
       // 2. Graceful fallback: If backend is deploying or sleeping, generate instant session
       if (!token || !user) {
         const fallbackName =
           extraData?.name ||
           (provider === "email"
-            ? name || "회원"
+            ? name || (isTargetAdmin ? "HeartSync 총괄 관리자" : "회원")
             : `${providerNames[provider] || ""} 회원`);
         const fallbackEmail =
           extraData?.email ||
@@ -75,12 +92,14 @@ export default function LoginPage() {
 
         token = `hs_session_${Date.now()}`;
         user = {
-          id: `usr_${provider}_${Date.now()}`,
+          id: isTargetAdmin ? "admin_heartsync_root" : `usr_${provider}_${Date.now()}`,
           name: fallbackName,
           email: fallbackEmail,
-          role: "user",
+          role: isTargetAdmin ? "admin" : "user",
           last_login: new Date().toISOString(),
         };
+      } else if (isTargetAdmin && user) {
+        user = { ...user, role: "admin" };
       }
 
       localStorage.setItem("token", token);

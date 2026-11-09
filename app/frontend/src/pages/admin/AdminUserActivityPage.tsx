@@ -15,10 +15,8 @@ import {
   AlertCircle,
   BarChart3,
 } from 'lucide-react';
-import { createClient } from '@metagptx/web-sdk';
+import { adminApi } from '@/lib/adminApi';
 import { toast } from 'sonner';
-
-const client = createClient();
 
 interface ActivityLogItem {
   id: string;
@@ -88,16 +86,14 @@ export default function AdminUserActivityPage() {
     setLoading(true);
     setError(null);
     try {
-      const params: Record<string, any> = { limit: 200 };
-      if (activeFilter) params.activity_type = activeFilter;
+      const params = new URLSearchParams();
+      params.set('limit', '200');
+      if (activeFilter) params.set('activity_type', activeFilter);
 
-      const res = await client.apiCall.invoke({
-        url: `/api/v1/admin/activity/${userId}`,
-        method: 'GET',
-        data: params,
-      });
-
-      const result = (res?.data || res) as UserActivityData;
+      const result = (await adminApi.getUserActivity(
+        userId,
+        params
+      )) as UserActivityData;
       setData(result);
     } catch (err: any) {
       console.error('[AdminUserActivityPage] Error:', err);
