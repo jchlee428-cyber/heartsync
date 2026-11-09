@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
+import { normalizeUpgradeOrders } from "@/lib/planUpgrade";
 
 const client = createClient();
 
@@ -14,6 +15,9 @@ interface Order {
   plan_type: string;
   plan_name: string;
   amount: number;
+  original_amount?: number;
+  upgrade_credit?: number;
+  is_upgrade?: boolean;
   currency: string;
   status: string;
   created_at: string;
@@ -37,13 +41,17 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string; ico
 
 const PLAN_GRADIENT: Record<string, string> = {
   single_analysis: "from-blue-500 to-cyan-500",
+  couple_dual: "from-pink-500 to-rose-500",
   monthly_subscription: "from-pink-500 to-rose-500",
+  all_care_pass: "from-purple-500 to-pink-500",
   couple_premium: "from-purple-500 to-pink-500",
 };
 
 const PLAN_ICON: Record<string, string> = {
   single_analysis: "⚡",
+  couple_dual: "✨",
   monthly_subscription: "✨",
+  all_care_pass: "👑",
   couple_premium: "👑",
 };
 
@@ -136,8 +144,9 @@ export default function PaymentHistoryPage() {
       return tB - tA;
     });
 
-    setOrders(merged);
-    const paid = merged.filter((o: Order) => o.status === "paid");
+    const normalized = normalizeUpgradeOrders(merged);
+    setOrders(normalized);
+    const paid = normalized.filter((o: Order) => o.status === "paid");
     const total = paid.reduce((sum: number, o: Order) => sum + (o.amount || 0), 0);
     setTotalSpent(total);
   };
@@ -395,6 +404,11 @@ export default function PaymentHistoryPage() {
                       </div>
                       <div>
                         <p className="text-sm font-bold text-gray-900">{order.plan_name || order.plan_type}</p>
+                        {order.is_upgrade && order.upgrade_credit && order.upgrade_credit > 0 ? (
+                          <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
+                            🔄 기결제 {formatCurrency(order.upgrade_credit)} 차감 적용
+                          </p>
+                        ) : null}
                         <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                           <Clock className="w-2.5 h-2.5" />
                           {formatDateTime(order.created_at)}
@@ -410,16 +424,25 @@ export default function PaymentHistoryPage() {
                   {/* Bottom Row: Amount + Order ID */}
                   <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                     <div className="flex items-center gap-3">
-                      <span className="text-xs text-gray-400">결제 금액</span>
+                      <span className="text-xs text-gray-400">
+                        {order.is_upgrade ? "차액 결제 금액" : "결제 금액"}
+                      </span>
                       {order.order_id && (
                         <span className="text-[9px] text-gray-300 font-mono">
                           #{order.order_id.slice(-8)}
                         </span>
                       )}
                     </div>
-                    <span className="text-base font-extrabold text-gray-900">
-                      {formatCurrency(order.amount)}
-                    </span>
+                    <div className="flex items-baseline gap-2">
+                      {order.is_upgrade && order.original_amount ? (
+                        <span className="text-xs text-gray-400 line-through">
+                          정가 {formatCurrency(order.original_amount)}
+                        </span>
+                      ) : null}
+                      <span className="text-base font-extrabold text-gray-900">
+                        {formatCurrency(order.amount)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
+import { getPlanTier, normalizeUpgradeOrders, PLAN_BASE_PRICES } from "@/lib/planUpgrade";
 
 const client = createClient();
 
@@ -46,11 +47,30 @@ export default function PaymentSuccessPage() {
 
   const recordLocalPaymentSuccess = (plan: string, orderNum: string | number | null, method: string, amtStr?: string) => {
     try {
+      const tier = getPlanTier(plan);
+      const basePrice = PLAN_BASE_PRICES[tier] || (plan === "single_analysis" ? 19900 : plan === "monthly_subscription" ? 29000 : 49000);
+      const numericAmount = amtStr
+        ? Number(String(amtStr).replace(/[^0-9]/g, "")) || 0
+        : basePrice;
+
+      const isUpgradeDiff =
+        numericAmount > 0 &&
+        numericAmount < basePrice &&
+        !String(method || "").includes("선물");
+
+      const canonicalName = planNames[plan] || plan;
+      const recordedPlanName = isUpgradeDiff
+        ? `[업그레이드] ${canonicalName} (차액 결제)`
+        : canonicalName;
+
       const order = {
         id: Date.now(),
         plan_type: plan,
-        plan_name: planNames[plan] || plan,
-        amount: amtStr ? Number(String(amtStr).replace(/[^0-9]/g, "")) || 0 : (plan === "single_analysis" ? 19900 : plan === "monthly_subscription" ? 29000 : 49000),
+        plan_name: recordedPlanName,
+        amount: numericAmount,
+        original_amount: isUpgradeDiff ? basePrice : undefined,
+        upgrade_credit: isUpgradeDiff ? basePrice - numericAmount : 0,
+        is_upgrade: isUpgradeDiff,
         currency: "KRW",
         status: "paid",
         payment_method: method || "간편결제",
@@ -58,10 +78,12 @@ export default function PaymentSuccessPage() {
         order_id: String(orderNum || `ORD-${Date.now().toString().slice(-6)}`),
       };
       const existing = JSON.parse(localStorage.getItem("heartsync_orders") || "[]");
-      localStorage.setItem("heartsync_orders", JSON.stringify([order, ...existing.filter((o: any) => o.order_id !== order.order_id)]));
+      const combined = [order, ...existing.filter((o: any) => o.order_id !== order.order_id)];
+      normalizeUpgradeOrders(combined);
+
       localStorage.setItem("heartsync_active_plan", JSON.stringify({
         plan_type: plan,
-        plan_name: planNames[plan] || plan,
+        plan_name: canonicalName,
         analyses_remaining: plan === "single_analysis" ? 1 : 999,
         is_active: true,
         expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
@@ -152,8 +174,8 @@ export default function PaymentSuccessPage() {
       if (!resolvedPlan) {
         if (orderId?.includes("couple_premium")) resolvedPlan = "couple_premium";
         else if (orderId?.includes("monthly_subscription")) resolvedPlan = "monthly_subscription";
-        else if (Number(amount) === 49000) resolvedPlan = "couple_premium";
-        else if (Number(amount) === 29000) resolvedPlan = "monthly_subscription";
+        else if (Number(amount) === 49000 || Number(amount) === 29100 || Number(amount) === 20000) resolvedPlan = "couple_premium";
+        else if (Number(amount) === 29000 || Number(amount) === 9100) resolvedPlan = "monthly_subscription";
         else resolvedPlan = "single_analysis";
       }
 

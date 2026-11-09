@@ -40,6 +40,7 @@ PLANS = {
         "currency": "krw",
         "analyses": 1,
         "days": 30,
+        "tier": 1,
     },
     "couple_dual": {
         "name": "커플 듀얼 매칭 패키지 (2인)",
@@ -47,6 +48,7 @@ PLANS = {
         "currency": "krw",
         "analyses": 2,
         "days": 60,
+        "tier": 2,
     },
     "monthly_subscription": {
         "name": "커플 듀얼 매칭 패키지 (2인)",
@@ -54,6 +56,7 @@ PLANS = {
         "currency": "krw",
         "analyses": 2,
         "days": 60,
+        "tier": 2,
     },
     "all_care_pass": {
         "name": "30일 관계 개선 올케어 패스",
@@ -61,6 +64,7 @@ PLANS = {
         "currency": "krw",
         "analyses": 999,
         "days": 30,
+        "tier": 3,
     },
     "couple_premium": {
         "name": "30일 관계 개선 올케어 패스",
@@ -68,8 +72,61 @@ PLANS = {
         "currency": "krw",
         "analyses": 999,
         "days": 30,
+        "tier": 3,
     },
 }
+
+PLAN_TIER_BASE_AMOUNT = {
+    1: 19900,
+    2: 29000,
+    3: 49000,
+}
+
+
+async def _get_user_active_tier(
+    db: AsyncSession,
+    user_id: str,
+    client_previous_plan: Optional[str] = None,
+) -> int:
+    """Return the user's current highest active plan tier (0 if none/free)."""
+    highest_tier = 0
+    if client_previous_plan and client_previous_plan in PLANS:
+        highest_tier = max(highest_tier, PLANS[client_previous_plan]["tier"])
+
+    try:
+        plans_service = User_plansService(db)
+        result = await plans_service.get_list(
+            user_id=user_id,
+            query_dict={"is_active": True},
+            sort="-created_at",
+            limit=10,
+        )
+        now = datetime.now()
+        for item in result.get("items", []):
+            if item.expires_at and item.expires_at < now:
+                continue
+            p_cfg = PLANS.get(item.plan_type)
+            if p_cfg:
+                highest_tier = max(highest_tier, p_cfg["tier"])
+    except Exception as e:
+        logger.warning(f"Failed to query active tier for user {user_id}: {e}")
+
+    return highest_tier
+
+
+def _compute_order_pricing(plan_type: str, active_tier: int) -> tuple[int, str, int]:
+    """Compute (final_amount, order_name, credit_amount) considering differential upgrade."""
+    plan = PLANS[plan_type]
+    target_tier = plan["tier"]
+    base_amount = plan["amount"]
+
+    if active_tier > 0 and target_tier > active_tier:
+        credit = PLAN_TIER_BASE_AMOUNT.get(active_tier, 0)
+        final_amount = max(0, base_amount - credit)
+        order_name = f"[업그레이드] {plan['name']} (차액 결제)"
+        return final_amount, order_name, credit
+
+    return base_amount, plan["name"], 0
 
 
 # --- Request/Response Models ---
@@ -78,12 +135,16 @@ PLANS = {
 class PrepareOrderRequest(BaseModel):
     plan_type: str
     diagnosis_id: Optional[str] = None
+    previous_plan_type: Optional[str] = None
 
 
 class PrepareOrderResponse(BaseModel):
     order_id: str
     order_name: str
     amount: int
+    original_amount: Optional[int] = None
+    upgrade_credit: Optional[int] = 0
+    is_upgrade: Optional[bool] = False
     client_key: str
     customer_email: Optional[str] = None
 
@@ -97,6 +158,7 @@ class ConfirmPaymentRequest(BaseModel):
 class SimulatePaymentRequest(BaseModel):
     plan_type: str = "single_analysis"
     diagnosis_id: Optional[str] = None
+    previous_plan_type: Optional[str] = None
     payment_method: Optional[str] = "가상 테스트 결제 (시뮬레이션)"
 
 
@@ -162,6 +224,16 @@ async def prepare_order(
         raise HTTPException(status_code=400, detail=f"잘못된 플랜 타입입니다: {data.plan_type}")
 
     plan = PLANS[data.plan_type]
+    target_tier = plan["tier"]
+    active_tier = await _get_user_active_tier(db, current_user.id, data.previous_plan_type)
+
+    if active_tier >= target_tier and active_tier > 0:
+        raise HTTPException(
+            status_code=400,
+            detail="이미 동일하거나 더 높은 등급의 플랜을 이용 중입니다.",
+        )
+
+    final_amount, order_name, credit_amount = _compute_order_pricing(data.plan_type, active_tier)
 
     try:
         now = datetime.now()
@@ -172,8 +244,8 @@ async def prepare_order(
         order = await orders_service.create(
             data={
                 "plan_type": data.plan_type,
-                "plan_name": plan["name"],
-                "amount": plan["amount"],
+                "plan_name": order_name,
+                "amount": final_amount,
                 "currency": plan["currency"],
                 "status": "pending",
                 "toss_order_id": toss_order_id,
@@ -184,16 +256,23 @@ async def prepare_order(
         )
 
         # Store diagnosis_id in localStorage on frontend side (already done)
-        logger.info(f"Order prepared: db_id={order.id}, toss_order_id={toss_order_id}")
+        logger.info(
+            f"Order prepared: db_id={order.id}, toss_order_id={toss_order_id}, amount={final_amount}, credit={credit_amount}"
+        )
 
         return PrepareOrderResponse(
             order_id=toss_order_id,
-            order_name=plan["name"],
-            amount=plan["amount"],
+            order_name=order_name,
+            amount=final_amount,
+            original_amount=plan["amount"],
+            upgrade_credit=credit_amount,
+            is_upgrade=credit_amount > 0,
             client_key=get_toss_client_key(),
             customer_email=getattr(current_user, "email", None),
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Order preparation error: {e}")
         raise HTTPException(status_code=400, detail=f"주문 생성 중 오류가 발생했습니다: {str(e)}")
@@ -263,7 +342,7 @@ async def confirm_payment(
             user_id=current_user.id,
         )
 
-        # 5. If paid, activate user plan
+        # 5. If paid, deactivate previous lower-tier plans and activate new user plan
         diagnosis_id = None
         if new_status == "paid":
             plan_config = PLANS.get(order.plan_type, {})
@@ -272,6 +351,22 @@ async def confirm_payment(
             expires_at = now + timedelta(days=days)
 
             plans_service = User_plansService(db)
+            try:
+                existing_active = await plans_service.get_list(
+                    user_id=current_user.id,
+                    query_dict={"is_active": True},
+                    sort="-created_at",
+                    limit=20,
+                )
+                for prev_plan in existing_active.get("items", []):
+                    await plans_service.update(
+                        obj_id=prev_plan.id,
+                        update_data={"is_active": False, "updated_at": now},
+                        user_id=current_user.id,
+                    )
+            except Exception as deact_err:
+                logger.warning(f"Failed to deactivate previous plans: {deact_err}")
+
             await plans_service.create(
                 data={
                     "plan_type": order.plan_type,
@@ -320,6 +415,17 @@ async def simulate_payment(
             plan_type = "single_analysis"
 
         plan = PLANS[plan_type]
+        target_tier = plan["tier"]
+        active_tier = await _get_user_active_tier(db, current_user.id, data.previous_plan_type)
+
+        if active_tier >= target_tier and active_tier > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="이미 동일하거나 더 높은 등급의 플랜을 이용 중입니다.",
+            )
+
+        final_amount, order_name, _credit_amount = _compute_order_pricing(plan_type, active_tier)
+
         now = datetime.now()
         sim_order_id = f"SIM-{plan_type}-{uuid.uuid4().hex[:10]}"
         sim_payment_key = f"sim_pk_{uuid.uuid4().hex[:16]}"
@@ -328,8 +434,8 @@ async def simulate_payment(
         order = await orders_service.create(
             data={
                 "plan_type": plan_type,
-                "plan_name": plan["name"],
-                "amount": plan["amount"],
+                "plan_name": order_name,
+                "amount": final_amount,
                 "currency": plan["currency"],
                 "status": "paid",
                 "toss_order_id": sim_order_id,
@@ -340,12 +446,28 @@ async def simulate_payment(
             user_id=current_user.id,
         )
 
-        # Activate plan
+        # Deactivate previous plans & activate new plan
         days = plan.get("days", 30)
         analyses = plan.get("analyses", 1)
         expires_at = now + timedelta(days=days)
 
         plans_service = User_plansService(db)
+        try:
+            existing_active = await plans_service.get_list(
+                user_id=current_user.id,
+                query_dict={"is_active": True},
+                sort="-created_at",
+                limit=20,
+            )
+            for prev_plan in existing_active.get("items", []):
+                await plans_service.update(
+                    obj_id=prev_plan.id,
+                    update_data={"is_active": False, "updated_at": now},
+                    user_id=current_user.id,
+                )
+        except Exception as deact_err:
+            logger.warning(f"Failed to deactivate previous plans: {deact_err}")
+
         await plans_service.create(
             data={
                 "plan_type": plan_type,
@@ -369,6 +491,8 @@ async def simulate_payment(
             receipt_url="/payment-history",
             diagnosis_id=data.diagnosis_id,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Simulated payment error: {e}")
         raise HTTPException(status_code=400, detail=f"가상 결제 처리 중 오류가 발생했습니다: {str(e)}")

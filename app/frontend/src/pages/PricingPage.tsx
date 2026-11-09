@@ -29,6 +29,7 @@ import GiftModal from "@/components/GiftModal";
 import Footer from "@/components/Footer";
 import TestPaymentModal from "@/components/TestPaymentModal";
 import TossPaymentModal from "@/components/TossPaymentModal";
+import { getPlanUpgradeQuote, resolveLocalActivePlanType } from "@/lib/planUpgrade";
 
 const client = createClient();
 
@@ -169,6 +170,7 @@ export default function PricingPage() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+    setCurrentPlan(resolveLocalActivePlanType());
     checkAuth();
     checkTossStatus();
     checkStripeStatus();
@@ -257,16 +259,10 @@ export default function PricingPage() {
   };
 
   const fetchCurrentPlan = async () => {
-    // Check local storage active plan first
-    try {
-      const localPlanStr = localStorage.getItem("heartsync_active_plan");
-      if (localPlanStr) {
-        const parsed = JSON.parse(localPlanStr);
-        if (parsed.plan_type && parsed.is_active) {
-          setCurrentPlan(parsed.plan_type);
-        }
-      }
-    } catch {}
+    const localResolved = resolveLocalActivePlanType();
+    if (localResolved !== "free") {
+      setCurrentPlan(localResolved);
+    }
 
     try {
       const res = await client.apiCall.invoke({
@@ -274,11 +270,13 @@ export default function PricingPage() {
         method: "GET",
         data: {},
       });
-      if (res.data?.plan_type) {
-        setCurrentPlan(res.data.plan_type);
-      }
+      const serverActivePlan =
+        res.data?.is_active && res.data?.plan_type && res.data?.plan_type !== "free"
+          ? res.data.plan_type
+          : null;
+      setCurrentPlan(resolveLocalActivePlanType(serverActivePlan));
     } catch {
-      // Default to free or existing local plan
+      // Keep local resolved plan
     }
   };
 
@@ -291,7 +289,16 @@ export default function PricingPage() {
       return;
     }
 
-    const selectedPlan = plans.find((p) => p.id === planId) || plans[0];
+    const effectiveCurrentPlan = resolveLocalActivePlanType(currentPlan);
+    const quote = getPlanUpgradeQuote(planId, effectiveCurrentPlan);
+    if (quote.isCurrentPlan) {
+      toast.info("현재 이용 중인 플랜입니다.");
+      return;
+    }
+    if (quote.isDowngrade) {
+      toast.info("이미 상위 플랜을 이용 중이시며 모든 혜택이 포함되어 있습니다.");
+      return;
+    }
 
     setLoading(planId);
     try {
@@ -303,8 +310,8 @@ export default function PricingPage() {
       // 1. Prepare order via backend API with resilient client-side fallback
       //    (prevents "Request failed with status code 404" when backend is sleeping/offline)
       let order_id = `HS-${planId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
-      let order_name = selectedPlan.name;
-      let amount = selectedPlan.priceNum;
+      let order_name = quote.orderName;
+      let amount = quote.finalPrice;
       let client_key =
         (import.meta as any).env?.VITE_TOSS_CLIENT_KEY ||
         "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
@@ -313,12 +320,17 @@ export default function PricingPage() {
         const res = await client.apiCall.invoke({
           url: "/api/v1/payment/prepare_order",
           method: "POST",
-          data: { plan_type: planId, diagnosis_id: diagnosisId },
+          data: {
+            plan_type: planId,
+            diagnosis_id: diagnosisId,
+            previous_plan_type: effectiveCurrentPlan !== "free" ? effectiveCurrentPlan : undefined,
+          },
         });
         if (res?.data?.order_id) {
           order_id = res.data.order_id;
-          order_name = res.data.order_name || order_name;
-          amount = Number(res.data.amount) || amount;
+          order_name = quote.isUpgrade ? quote.orderName : res.data.order_name || order_name;
+          const serverAmount = Number(res.data.amount) || amount;
+          amount = quote.isUpgrade ? Math.min(serverAmount, quote.finalPrice) : serverAmount;
           if (res.data.client_key) {
             client_key = res.data.client_key;
           }
@@ -335,6 +347,9 @@ export default function PricingPage() {
           plan_type: planId,
           plan_name: order_name,
           amount,
+          original_amount: quote.basePrice,
+          upgrade_credit: quote.creditAmount,
+          is_upgrade: quote.isUpgrade,
           diagnosis_id: diagnosisId,
           created_at: new Date().toISOString(),
         })
@@ -520,21 +535,31 @@ export default function PricingPage() {
                 ✅
               </div>
               <div>
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
                     현재 결제 상태: 결제 완료
                   </span>
+                  {currentPlan !== "couple_premium" && currentPlan !== "all_care_pass" && (
+                    <span className="text-[10px] font-extrabold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                      상위 플랜 차액 업그레이드 가능
+                    </span>
+                  )}
                 </div>
                 <p className="text-sm font-bold text-emerald-950 mt-0.5">
                   {(plans.find((p) => p.id === currentPlan) || plans[1])?.name || currentPlan} 플랜 정상 이용 중
                 </p>
+                {currentPlan !== "couple_premium" && currentPlan !== "all_care_pass" && (
+                  <p className="text-[11px] text-emerald-700 mt-0.5">
+                    💡 상위 플랜 전환 시 이미 결제하신 금액(₩{getPlanUpgradeQuote("couple_premium", currentPlan).creditFormatted})은 100% 차감되어 차액만 결제됩니다.
+                  </p>
+                )}
               </div>
             </div>
             <button
-              onClick={() => navigate("/mypage")}
-              className="text-xs text-emerald-700 bg-white border border-emerald-200 hover:bg-emerald-50 font-bold px-3 py-1.5 rounded-xl shadow-2xs"
+              onClick={() => navigate("/payment-history")}
+              className="text-xs text-emerald-700 bg-white border border-emerald-200 hover:bg-emerald-50 font-bold px-3 py-1.5 rounded-xl shadow-2xs flex-shrink-0"
             >
-              내 플랜 보기
+              결제 내역
             </button>
           </div>
         )}
@@ -633,7 +658,8 @@ export default function PricingPage() {
         <div className="space-y-5">
           {plans.map((plan) => {
             const Icon = plan.icon;
-            const isCurrentPlan = currentPlan === plan.id;
+            const quote = getPlanUpgradeQuote(plan.id, currentPlan);
+            const { isCurrentPlan, isDowngrade, isUpgrade } = quote;
             const showUsd = paymentProvider === "stripe";
 
             return (
@@ -667,12 +693,19 @@ export default function PricingPage() {
                     <Icon className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
-                      {plan.discountBadge && !showUsd && (
-                        <span className="text-[11px] font-extrabold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">
-                          {plan.discountBadge}
+                      {isUpgrade ? (
+                        <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                          🔄 기결제 -₩{quote.creditFormatted} 차감
                         </span>
+                      ) : (
+                        plan.discountBadge &&
+                        !showUsd && (
+                          <span className="text-[11px] font-extrabold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-full border border-pink-200">
+                            {plan.discountBadge}
+                          </span>
+                        )
                       )}
                     </div>
                     <p className="text-xs text-gray-500 mt-0.5">{plan.description}</p>
@@ -688,13 +721,37 @@ export default function PricingPage() {
 
                 {/* Price Display */}
                 <div className="mb-5 pb-4 border-b border-gray-100">
-                  <div className="flex items-baseline gap-2">
+                  {isUpgrade && !showUsd && (
+                    <div className="mb-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800">
+                      <span>✨ {quote.activePlanName} 기결제 금액(₩{quote.creditFormatted}) 차감 적용</span>
+                    </div>
+                  )}
+                  <div className="flex items-baseline gap-2 flex-wrap">
                     {showUsd ? (
                       <>
+                        {isUpgrade && (
+                          <span className="text-sm font-semibold text-gray-400 line-through">
+                            ${plan.priceUsd}
+                          </span>
+                        )}
                         <span className="text-3xl font-black text-gray-900">
-                          ${plan.priceUsd}
+                          ${isUpgrade ? quote.finalUsd : plan.priceUsd}
                         </span>
-                        <span className="text-sm font-medium text-gray-400">USD / {plan.period}</span>
+                        <span className="text-sm font-medium text-gray-400">
+                          USD / {isUpgrade ? "업그레이드 차액" : plan.period}
+                        </span>
+                      </>
+                    ) : isUpgrade ? (
+                      <>
+                        <span className="text-sm font-semibold text-gray-400 line-through">
+                          정가 ₩{plan.price}
+                        </span>
+                        <span className="text-3xl font-black text-emerald-600 tracking-tight">
+                          ₩{quote.finalPriceFormatted}
+                        </span>
+                        <span className="text-xs font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+                          업그레이드 차액만 결제
+                        </span>
                       </>
                     ) : (
                       <>
@@ -714,7 +771,7 @@ export default function PricingPage() {
                   </div>
                   {showUsd && (
                     <p className="text-[11px] text-gray-400 mt-1">
-                      (원화 환산 약 ₩{plan.price} KRW)
+                      (원화 환산 약 ₩{isUpgrade ? quote.finalPriceFormatted : plan.price} KRW)
                     </p>
                   )}
                 </div>
@@ -734,61 +791,74 @@ export default function PricingPage() {
                 </ul>
 
                 {/* CTA Button */}
-                {isCurrentPlan ? (
+                <div>
+                  {isCurrentPlan ? (
+                    <button
+                      disabled
+                      className="w-full py-3.5 rounded-2xl text-sm font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-not-allowed"
+                    >
+                      현재 이용 중인 플랜입니다 ✅
+                    </button>
+                  ) : isDowngrade ? (
+                    <button
+                      disabled
+                      className="w-full py-3.5 rounded-2xl text-sm font-bold bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed"
+                    >
+                      상위 플랜 이용 중 (혜택 포함됨) 👑
+                    </button>
+                  ) : (
+                    <>
+                      <button
+                        onClick={() => handlePurchase(plan.id)}
+                        disabled={loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)}
+                        className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${
+                          loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
+                            ? "opacity-60 cursor-wait"
+                            : "hover:shadow-lg hover:scale-[1.01]"
+                        }`}
+                      >
+                        {loading === plan.id ? (
+                          <span className="flex items-center justify-center gap-2">
+                            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                            결제창 호출 중...
+                          </span>
+                        ) : paymentProvider === "stripe" && !stripeConfigured ? (
+                          "Stripe 설정 필요"
+                        ) : isUpgrade ? (
+                          <span>
+                            ⚡ ₩{quote.finalPriceFormatted} 차액만 결제하고 업그레이드
+                          </span>
+                        ) : (
+                          <span>
+                            ⚡ {plan.popular ? "1초 간편결제로 시작하기 (인기 1위)" : "1초 간편결제로 시작하기"}
+                          </span>
+                        )}
+                      </button>
+
+                      {/* ── 3번 개선: 버튼 직하단 환불 보증 안내 ── */}
+                      <div className="flex items-center justify-center gap-1.5 mt-2.5 text-[11px] text-gray-500">
+                        <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>AI 리포트 생성 전 7일 이내 100% 전액 환불 보장</span>
+                      </div>
+                    </>
+                  )}
+
+                  {/* ── 선물하기 버튼 (100일/1주년/기념일 선물 - 본인 플랜과 무관하게 언제든 선물 가능) ── */}
                   <button
-                    disabled
-                    className="w-full py-3.5 rounded-2xl text-sm font-bold bg-gray-100 text-gray-400 cursor-not-allowed"
+                    type="button"
+                    onClick={() => {
+                      setGiftInitialPlan(plan.id);
+                      setIsGiftModalOpen(true);
+                    }}
+                    className="w-full mt-3 py-3 rounded-2xl border-2 border-pink-200 bg-pink-50/60 hover:bg-pink-100/80 text-pink-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs"
                   >
-                    현재 이용 중인 플랜
+                    <Gift className="w-4 h-4 text-pink-500" />
+                    <span>연인에게 이 플랜 선물하기 (모바일 러브레터 티켓 발송)</span>
                   </button>
-                ) : (
-                  <div>
-                    <button
-                      onClick={() => handlePurchase(plan.id)}
-                      disabled={loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)}
-                      className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${
-                        loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
-                          ? "opacity-60 cursor-wait"
-                          : "hover:shadow-lg hover:scale-[1.01]"
-                      }`}
-                    >
-                      {loading === plan.id ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                          </svg>
-                          결제창 호출 중...
-                        </span>
-                      ) : paymentProvider === "stripe" && !stripeConfigured ? (
-                        "Stripe 설정 필요"
-                      ) : (
-                        <>
-                          <span>⚡ {plan.popular ? "1초 간편결제로 시작하기 (인기 1위)" : "1초 간편결제로 시작하기"}</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* ── 3번 개선: 버튼 직하단 환불 보증 안내 ── */}
-                    <div className="flex items-center justify-center gap-1.5 mt-2.5 text-[11px] text-gray-500">
-                      <Shield className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>AI 리포트 생성 전 7일 이내 100% 전액 환불 보장</span>
-                    </div>
-
-                    {/* ── 선물하기 버튼 (100일/1주년/기념일 선물) ── */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setGiftInitialPlan(plan.id);
-                        setIsGiftModalOpen(true);
-                      }}
-                      className="w-full mt-3 py-3 rounded-2xl border-2 border-pink-200 bg-pink-50/60 hover:bg-pink-100/80 text-pink-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs"
-                    >
-                      <Gift className="w-4 h-4 text-pink-500" />
-                      <span>연인에게 이 플랜 선물하기 (모바일 러브레터 티켓 발송)</span>
-                    </button>
-                  </div>
-                )}
+                </div>
               </div>
             );
           })}

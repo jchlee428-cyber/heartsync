@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@metagptx/web-sdk";
 import MiniDiagnosisModal from "./MiniDiagnosisModal";
+import { getPlanUpgradeQuote, resolveLocalActivePlanType } from "@/lib/planUpgrade";
 
 const client = createClient();
 
@@ -717,37 +718,75 @@ export default function RelationshipTrendTracker({
         </div>
       )}
 
-      {/* ── 30일 올케어 패스 (49,000원) 업셀링 배너 ── */}
-      <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-2xl p-4 shadow-md space-y-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <Crown className="w-5 h-5 text-amber-300 animate-pulse" />
-            <span className="text-xs font-black tracking-wide text-amber-300 uppercase">
-              ALL-CARE VIP SUBSCRIPTION
-            </span>
+      {/* ── 30일 올케어 패스 업셀링 / 활성 상태 배너 ── */}
+      {(() => {
+        const activePlanType = resolveLocalActivePlanType();
+        const vipQuote = getPlanUpgradeQuote("couple_premium", activePlanType);
+
+        if (vipQuote.isCurrentPlan) {
+          return (
+            <div className="bg-gradient-to-r from-emerald-900 via-teal-900 to-emerald-950 text-white rounded-2xl p-4 shadow-md flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <Crown className="w-5 h-5 text-amber-300 flex-shrink-0" />
+                <div>
+                  <p className="text-xs font-black text-white">
+                    30일 관계 개선 올케어 패스 VIP 이용 중
+                  </p>
+                  <p className="text-[11px] text-emerald-200 mt-0.5">
+                    30일간 무제한 시계열 재진단 및 AI 1:1 코칭이 활성화되어 있습니다.
+                  </p>
+                </div>
+              </div>
+              <span className="text-[10px] font-black px-2.5 py-1 bg-emerald-400/20 text-emerald-200 border border-emerald-400/30 rounded-full flex-shrink-0">
+                활성됨 ✅
+              </span>
+            </div>
+          );
+        }
+
+        return (
+          <div className="bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-950 text-white rounded-2xl p-4 shadow-md space-y-3">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2">
+                <Crown className="w-5 h-5 text-amber-300 animate-pulse" />
+                <span className="text-xs font-black tracking-wide text-amber-300 uppercase">
+                  ALL-CARE VIP SUBSCRIPTION
+                </span>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full">
+                {vipQuote.isUpgrade
+                  ? `기결제 -₩${vipQuote.creditFormatted} 차감`
+                  : "38% 특별 할인"}
+              </span>
+            </div>
+
+            <div>
+              <h4 className="text-sm font-black text-white leading-snug">
+                {vipQuote.isUpgrade
+                  ? `30일 관계 개선 올케어 패스 업그레이드 (차액 ₩${vipQuote.finalPriceFormatted})`
+                  : "30일 관계 개선 올케어 패스 (₩49,000)"}
+              </h4>
+              <p className="text-[11px] text-purple-200 mt-1 leading-relaxed">
+                {vipQuote.isUpgrade
+                  ? `현재 이용 중인 ${vipQuote.activePlanName} 결제 금액(₩${vipQuote.creditFormatted})을 차감하고 차액만 결제하여 30일 무제한 추적으로 전환합니다.`
+                  : "무제한 시계열 재진단 + 매주 갈등 변화 리포트 + AI 1:1 맞춤 코칭을 30일간 지속 제공합니다."}
+              </p>
+            </div>
+
+            <button
+              onClick={() => navigate("/pricing")}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-black text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5"
+            >
+              <span>
+                {vipQuote.isUpgrade
+                  ? `₩${vipQuote.finalPriceFormatted} 차액 결제로 30일 올케어 업그레이드`
+                  : "30일 올케어로 무제한 추적 시작하기"}
+              </span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
           </div>
-          <span className="text-[10px] font-black px-2 py-0.5 bg-amber-400/20 text-amber-300 border border-amber-400/30 rounded-full">
-            38% 특별 할인
-          </span>
-        </div>
-
-        <div>
-          <h4 className="text-sm font-black text-white leading-snug">
-            30일 관계 개선 올케어 패스 (₩49,000)
-          </h4>
-          <p className="text-[11px] text-purple-200 mt-1 leading-relaxed">
-            무제한 시계열 재진단 + 매주 갈등 변화 리포트 + AI 1:1 맞춤 코칭을 30일간 지속 제공합니다.
-          </p>
-        </div>
-
-        <button
-          onClick={() => navigate("/pricing")}
-          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-black text-xs shadow-md active:scale-98 transition-all flex items-center justify-center gap-1.5"
-        >
-          <span>30일 올케어로 무제한 추적 시작하기</span>
-          <ChevronRight className="w-3.5 h-3.5" />
-        </button>
-      </div>
+        );
+      })()}
 
       {/* Mini Diagnosis Modal */}
       <MiniDiagnosisModal
