@@ -313,7 +313,7 @@ export default function PricingPage() {
       let order_name = quote.orderName;
       let amount = quote.finalPrice;
       let client_key =
-        (import.meta as any).env?.VITE_TOSS_CLIENT_KEY ||
+        import.meta.env.VITE_TOSS_CLIENT_KEY ||
         "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
 
       try {

@@ -241,16 +241,27 @@ const SCENARIOS: ScenarioTemplate[] = [
     relatedPart: "intimacy",
     empathy: [
       "소중한 사람과 마음이 온전히 닿지 않고 대화가 겉도는 느낌이 들면 함께 있어도 외롭고 답답한 마음이 드실 거예요.",
-      "관계에서 겪는 서운함과 갈등은 두 사람이 서로의 다름을 이해하고 더 깊어지기 위해 지나가는 과정이기도 해요.",
+      "관계에서 겪는 서운함과 소통의 벽은 두 사람이 서로 다른 대화 습관을 맞춰가는 과정에서 가장 자주 부딪히는 고민이에요.",
+      "내 진심을 전하고 싶을 뿐인데 상대와 대화 핀트가 어긋나면, 말할수록 오히려 지치고 입을 닫고 싶어지죠.",
+      "가까운 사이일수록 내 마음을 조금만 더 헤아려주길 바라게 되는데, 그게 마음처럼 되지 않을 때 참 쓸쓸해집니다.",
     ],
     insight: [
       "대화가 막히는 가장 큰 이유는 내 마음속의 **'진짜 감정(외로움, 서운함, 불안)'과 '구체적인 바람'**을 말하는 대신, 나도 모르게 상대의 태도를 평가하는 말로 대화가 시작되기 때문이에요. 내 속마음을 부드럽게 보여줄 때 상대도 방어를 내려놓습니다.",
+      "두 사람의 대화 방식이 다를 때는 '누가 맞느냐'를 따질수록 평행선을 달리게 됩니다. 상대방의 말을 먼저 한 문장으로 요약해주고(*\"네 입장에선 그럴 수 있겠다\"*) 내 감정을 덧붙이는 **'공감 후 전달법'**이 방어벽을 허무는 가장 빠른 열쇠예요.",
+      "많은 커플이 상대방이 내 마음을 '알아서 눈치채주길' 기대하다가 실망하곤 합니다. 하지만 아무리 사랑하는 사이라도 구체적인 행동 언어로 번역해서 알려주지 않으면 상대는 내 서운함의 이유를 정확히 알기 어렵습니다.",
+      "감정이 상한 상태에서 대화를 길게 끌고 가면 서로의 말꼬리를 잡게 되기 쉬워요. 한 번의 대화에서는 **'오늘 가장 서운했던 핵심 1가지'**와 **'다음에 바라는 행동 1가지'**만 짧고 명확하게 나누는 것이 훨씬 효과적입니다.",
     ],
     actionScripts: [
       "내 마음을 전할 때는 **'상황 → 내 감정 → 구체적인 부탁'** 순서로 이야기해보세요:\n> 💬 *\"요즘 우리가 깊게 대화할 시간이 줄어드니까(상황) 조금 외롭고 멀어진 기분이 들어(감정). 오늘 저녁에 15분만 차 마시면서 편하게 이야기 나눌 수 있을까?(부탁)\"*",
+      "대화가 자꾸 겉돌 때는 시시비비를 가리기 전에 **'경청 약속'**부터 먼저 제안해보세요:\n> 💬 *\"우리가 서로 오해가 쌓이지 않게, 내가 먼저 2분 동안 내 속마음을 솔직하게 말할 테니 조언이나 반박 대신 '그래서 서운했구나' 하고 먼저 들어줄 수 있을까? 그다음엔 내가 네 이야기를 끝까지 들을게.\"*",
+      "상대방이 내 말을 오해하거나 방어적으로 나올 때는 **'의도 먼저 밝혀주기'** 문장을 써보세요:\n> 💬 *\"너를 비난하거나 싸우려는 게 절대 아니야. 그냥 우리가 더 편하고 가깝게 지내고 싶어서 내 솔직한 마음을 꺼내는 거니까 편하게 들어줬으면 좋겠어.\"*",
+      "서운함을 말할 때는 막연한 불만 대신 **'이렇게 해주면 좋겠다'는 긍정적 행동 요청**으로 바꿔보세요:\n> 💬 *\"내가 속상한 이야기를 할 때는 해결책을 바로 말해주기보다, 먼저 내 편에서 '많이 힘들었겠다'고 한마디만 공감해주면 마음이 금방 풀릴 것 같아.\"*",
     ],
     followUpQuestions: [
       "파트너와 대화할 때 어떤 순간에 가장 '내 마음을 몰라준다'거나 '답답하다'고 느끼시나요?",
+      "내가 서운한 마음을 꺼냈을 때 파트너는 주로 어떤 말이나 태도로 반응하는 편인가요?",
+      "두 분의 대화에서 지금 당장 한 가지만 바꿀 수 있다면, 상대방의 어떤 대화 습관이 가장 바뀌었으면 좋겠나요?",
+      "최근에 대화하다가 마음이 탁 막혔던 구체적인 장면이나 대화 내용이 있다면 편하게 들려주시겠어요?",
     ],
   },
 ];
@@ -267,7 +278,38 @@ function matchFollowUpOrShortIntent(
   const isColdWarQuestion = /냉전|얼마나\s*지속|누가\s*먼저|화해|사과|얼마\s*만에/.test(lastAssistantMsg);
   const isShort = cleanMsg.length <= 18;
 
-  // 1. 5가지 사랑의 언어: 선물 (Gifts)
+  // 0-A. 동문서답 / 말 돌리기 / 논점 흐리기 / 내 말을 안 들을 때
+  if (/동문서답|딴소리|말을?\s*돌려|말\s*돌리|논점|핵심을\s*피|못\s*알아듣|안\s*들어|건성|핀트/.test(cleanMsg)) {
+    return (
+      "내가 꺼낸 핵심 이야기는 쏙 피하고 **'동문서답'하거나 엉뚱한 말로 논점을 흐릴 때** 정말 맥이 빠지고 화가 나시죠. '내 말을 아예 귀담아듣지 않나?', '나를 가볍게 여기나?' 하는 무시당하는 기분까지 들게 됩니다.\n\n" +
+      "상대방이 대화 중에 동문서답을 하거나 말을 돌리는 심리는 크게 두 가지예요. 첫째는 내 말 속의 서운함을 **'나에 대한 추궁'으로 느껴 본능적으로 불리한 주제를 회피하려는 방어기제**이고, 둘째는 감정 대화에 서툴러서 **공감 대신 엉뚱한 사실 확인이나 다른 이야기로 어색한 순간을 빨리 넘기려 하기 때문**입니다.\n\n" +
+      "상대가 동문서답으로 말을 돌릴 때는 그 엉뚱한 대답에 따라가지 말고, 부드럽지만 단호하게 **'대화 초점 되돌리기'** 문장을 써보세요:\n" +
+      '> 💬 *"그 이야기도 이따가 나누면 좋겠지만, 지금 내가 진짜 하고 싶은 말은 이 부분이야. 다른 이야기 말고 내가 방금 말한 이 서운한 마음에 대해서만 네 생각을 먼저 들려줄 수 있을까?"*\n\n' +
+      "파트너가 동문서답을 할 때는 주로 **본인에게 불리한 상황일 때 일부러 말을 돌리는 느낌**인가요, 아니면 **평소에도 내 말의 감정 포인트를 잘 못 짚는 편**인가요?"
+    );
+  }
+
+  // 0-B. 변명 / 남탓 / 적반하장 / 오히려 화낼 때
+  if (/변명|남탓|내\s*탓|적반하장|오히려\s*화|역정|불리할\s*때|일부러/.test(cleanMsg)) {
+    return (
+      `내가 서운한 걸 말했을 뿐인데 사과나 공감은커녕 **오히려 변명을 하거나 화를 내며 내 탓으로 돌리면**, 정말 억울하고 말문이 턱 막히시죠.\n\n` +
+      "심리학적으로 상대가 불리할 때 역정을 내거나 말을 돌리는 건, 내면에서 **'내가 잘못한 나쁜 연인이 되는 것'을 견디지 못하는 강한 방어 반응**이에요. 공격이 최선의 방어라고 무의식적으로 반응하는 것이죠.\n\n" +
+      "이런 파트너에게는 잘잘못을 따질수록 방어벽만 높아집니다. 대화를 시작할 때 **'네 잘못을 추궁하려는 게 아니다'**라는 안전장치부터 깔아두고 본론을 꺼내보세요:\n" +
+      '> 💬 *"누가 잘했고 잘못했는지 따지려는 게 아니야. 네 입장에서도 이유가 있었을 거라고 생각해. 다만 내 마음이 이러했다는 걸 네가 알아줬으면 해서 말하는 거니까, 변명이나 화내기 전에 내 마음만 먼저 한 번 들어줄래?"*\n\n' +
+      "이렇게 말했을 때도 상대가 계속 자기 방어만 한다면, 최근에 가장 억울했던 다툼 장면이 어떤 거였는지 하나만 들려주시겠어요?"
+    );
+  }
+
+  // 0-C. 공감을 못할 때 / T 성향 / 해결책만 말할 때 / 못 알아들을 때
+  if (/공감을?\s*못|공감\s*능력|눈치가?\s*없|로봇|기계|해결책만|감정을?\s*모르|못\s*짚|평소에도/.test(cleanMsg)) {
+    return (
+      "악의를 가지고 일부러 그러는 건 아닌데, **내 감정 포인트를 전혀 못 짚고 엉뚱한 소리나 딱딱한 해결책만 내놓을 때** 참 외롭고 답답하시죠.\n\n" +
+      "감정 읽기에 서툰 파트너는 내가 힘들다고 말할 때 *'어떻게 위로하지?'* 대신 *'무슨 정보를 줘야 하지?'*라고 머리를 굴리다 보니 내 마음과 동떨어진 대답을 내놓곤 합니다.\n\n" +
+      "이런 파트너에게는 눈치채주기를 기다리는 것보다, **내가 지금 원하는 반응이 '해결책'이 아니라 '공감'이라는 걸 대화 시작 전에 미리 콕 집어 알려주는 것**이 가장 효과적이에요:\n" +
+      '> 💬 *"지금 내가 하는 이야기는 해결책이나 조언이 필요한 게 아니야. 그냥 내 편에서 \'진짜 속상했겠다, 고생했네\' 하고 맞장구만 쳐주면 마음이 다 풀릴 것 같아!"*\n\n' +
+      "평소 파트너에게 이렇게 원하는 리액션을 구체적으로 알려주셨을 때는 상대방이 조금이라도 따라오려고 노력하는 편인가요?"
+    );
+  }
   if (
     /^(선물|선물하기|기념일|꽃|편지|작은\s*선물)$/.test(cleanMsg) ||
     ((isLoveLangQuestion || isShort) && /선물|기념일|꽃|편지|사주|챙겨주/.test(cleanMsg))
@@ -445,6 +487,22 @@ function matchFollowUpOrShortIntent(
   return null;
 }
 
+function pickNonRepeating(
+  items: string[],
+  pastText: string,
+  startIdx: number
+): string {
+  if (!items || items.length === 0) return "";
+  for (let offset = 0; offset < items.length; offset++) {
+    const candidate = items[(startIdx + offset) % items.length];
+    const snippet = candidate.slice(0, 28);
+    if (!pastText.includes(snippet)) {
+      return candidate;
+    }
+  }
+  return items[startIdx % items.length];
+}
+
 /**
  * Generate a deeply contextualized, natural counseling response
  * when the live LLM endpoint is unavailable or in fallback mode.
@@ -458,14 +516,15 @@ export function generateContextualCounselingReply(params: {
   const { userMessage, history, diagnosis, topicId } = params;
   const cleanMsg = userMessage.trim();
 
-  // Find the most recent assistant message to understand what question the user is answering
+  // Find the most recent assistant message and all past assistant text to prevent any repetition
   const assistantMessages = history.filter((m) => m.role === "assistant");
   const lastAssistantMsg =
     assistantMessages.length > 0 ? assistantMessages[assistantMessages.length - 1].content : "";
+  const pastAssistantText = assistantMessages.map((m) => m.content).join("\n");
 
   // 1. Check direct follow-up or short conversational answer first!
   const followUpReply = matchFollowUpOrShortIntent(cleanMsg, lastAssistantMsg);
-  if (followUpReply) {
+  if (followUpReply && !pastAssistantText.includes(followUpReply.slice(0, 32))) {
     return followUpReply;
   }
 
@@ -494,13 +553,19 @@ export function generateContextualCounselingReply(params: {
     scenario = SCENARIOS[SCENARIOS.length - 1];
   }
 
-  // Rotate variations deterministically by turn index + message length so consecutive answers never repeat
   const seed = userTurnIndex + cleanMsg.length;
-  const empathyText = scenario.empathy[seed % scenario.empathy.length];
-  const insightText = scenario.insight[userTurnIndex % scenario.insight.length];
-  const actionText = scenario.actionScripts[userTurnIndex % scenario.actionScripts.length];
-  const followUpText =
-    scenario.followUpQuestions[userTurnIndex % scenario.followUpQuestions.length];
+  const rawEmpathy = pickNonRepeating(scenario.empathy, pastAssistantText, seed);
+  const empathyText =
+    cleanMsg.length <= 28 && userTurnIndex > 0
+      ? `말씀해주신 **'${cleanMsg}'** 상황에서는 정말 답답하고 속상하셨을 거예요. ${rawEmpathy}`
+      : rawEmpathy;
+  const insightText = pickNonRepeating(scenario.insight, pastAssistantText, userTurnIndex);
+  const actionText = pickNonRepeating(scenario.actionScripts, pastAssistantText, userTurnIndex);
+  const followUpText = pickNonRepeating(
+    scenario.followUpQuestions,
+    pastAssistantText,
+    userTurnIndex
+  );
 
   // Build personalized diagnosis insight naturally on initial turns
   let diagnosisBridge = "";

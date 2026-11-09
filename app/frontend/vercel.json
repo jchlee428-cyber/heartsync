@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/api/ai-chat",
+      "destination": "/api/ai-chat"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://heartsync-5tbs.onrender.com/api/:match*"
     },

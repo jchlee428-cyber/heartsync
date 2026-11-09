@@ -799,56 +799,35 @@ export default function ChatbotPage() {
       text.includes("💡 **심리학적 핵심 원리") ||
       text.includes("❓ **함께 더 이야기해보고 싶어요:");
 
-    const directApiKey = (
-      (import.meta as any).env?.VITE_OPENAI_API_KEY ||
-      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-      (import.meta as any).env?.VITE_AI_API_KEY ||
-      localStorage.getItem("heartsync_ai_api_key") ||
-      ""
-    ).trim();
-
-    if (directApiKey) {
-      try {
-        const isGemini = directApiKey.startsWith("AIza");
-        const endpoint = isGemini
-          ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-          : "https://api.openai.com/v1/chat/completions";
-        const modelName = isGemini ? "gemini-2.5-flash" : "gpt-4o-mini";
-
-        const resp = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${directApiKey}`,
-          },
-          body: JSON.stringify({
-            model: modelName,
-            messages: [
-              { role: "system", content: systemPromptRef.current },
-              ...chatHistory,
-              { role: "user", content: msgText },
-            ],
-            temperature: 0.7,
-          }),
-        });
-
-        if (resp.ok) {
-          const data = await resp.json();
-          const replyText = data?.choices?.[0]?.message?.content?.trim();
-          if (replyText) {
-            setIsStreaming(false);
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: replyText } : m))
-            );
-            if (finalSessionId) {
-              saveMessage(finalSessionId, "assistant", replyText);
-            }
-            return;
+    // 1. Try server-side Vercel Function (/api/ai-chat) first so API keys are never exposed to the browser
+    try {
+      const serverlessResp = await fetch("/api/ai-chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [
+            { role: "system", content: systemPromptRef.current },
+            ...chatHistory,
+            { role: "user", content: msgText },
+          ],
+        }),
+      });
+      if (serverlessResp.ok) {
+        const serverlessData = await serverlessResp.json();
+        const replyText = serverlessData?.content?.trim();
+        if (replyText && !isLegacyStaticFallback(replyText)) {
+          setIsStreaming(false);
+          setMessages((prev) =>
+            prev.map((m) => (m.id === assistantId ? { ...m, content: replyText } : m))
+          );
+          if (finalSessionId) {
+            saveMessage(finalSessionId, "assistant", replyText);
           }
+          return;
         }
-      } catch {
-        // Fall through to backend / conversational engine
       }
+    } catch {
+      // Fall through to backend / conversational engine
     }
 
     try {
