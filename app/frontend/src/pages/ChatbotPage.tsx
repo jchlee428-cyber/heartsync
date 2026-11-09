@@ -3,6 +3,8 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Send, Bot, User, Trash2, Sparkles, BarChart3, ChevronDown, Plus, MessageSquare, Clock, Tag, Star, X, ThumbsUp } from "lucide-react";
 import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
+import { analyzeDiagnosisAnswers } from "@/lib/diagnosisAnalysis";
+import { generateContextualCounselingReply } from "@/lib/counselingEngine";
 
 const client = createClient();
 
@@ -17,6 +19,7 @@ interface DiagnosisData {
   id: string;
   total_score: number;
   scores: Record<string, number>;
+  answers?: Record<string, number> | string;
   created_at: string;
   ai_report?: string;
 }
@@ -150,21 +153,73 @@ const categoryInfo: Record<string, { label: string; emoji: string }> = {
   physical: { label: "신체적 만족", emoji: "🔥" },
 };
 
-function getGradeLabel(total: number) {
+function getGradeLabel(total: number, conflictScore?: number) {
+  if (total < 140 || (conflictScore !== undefined && conflictScore > 0 && conflictScore < 25)) {
+    return total >= 140 ? "위험 (갈등 주의) 🔴" : "위험 🔴";
+  }
   if (total >= 210) return "매우 건강 🟢";
   if (total >= 175) return "양호 🔵";
-  if (total >= 140) return "주의 필요 🟡";
-  return "위험 🔴";
+  return "주의 필요 🟡";
 }
 
-function getGradeColor(total: number) {
+function getGradeColor(total: number, conflictScore?: number) {
+  if (total < 140 || (conflictScore !== undefined && conflictScore > 0 && conflictScore < 25)) {
+    return "text-red-600 bg-red-50";
+  }
   if (total >= 210) return "text-green-600 bg-green-50";
   if (total >= 175) return "text-blue-600 bg-blue-50";
-  if (total >= 140) return "text-amber-600 bg-amber-50";
-  return "text-red-600 bg-red-50";
+  return "text-amber-600 bg-amber-50";
 }
 
-function buildSystemPrompt(diagnosis: DiagnosisData | null, topicExtra?: string): string {
+function loadLocalDiagnosisFallback(targetId?: string | null): DiagnosisData | null {
+  try {
+    const candidates: string[] = [];
+    if (targetId) {
+      const byId = localStorage.getItem(`heartsync_diagnosis_${targetId}`);
+      if (byId) candidates.push(byId);
+    }
+    const last = localStorage.getItem("heartsync_last_diagnosis");
+    if (last) candidates.push(last);
+
+    const listRaw = localStorage.getItem("heartsync_local_diagnoses");
+    if (listRaw) {
+      try {
+        const list = JSON.parse(listRaw);
+        if (Array.isArray(list) && list.length > 0) {
+          if (targetId) {
+            const matched = list.find((d: any) => String(d.id) === String(targetId));
+            if (matched) candidates.unshift(JSON.stringify(matched));
+          }
+          candidates.push(JSON.stringify(list[0]));
+        }
+      } catch {}
+    }
+
+    for (const raw of candidates) {
+      try {
+        const d = JSON.parse(raw);
+        if (d && (d.scores || d.total_score)) {
+          return {
+            id: String(d.id || targetId || "local"),
+            total_score: Number(d.total_score) || 0,
+            scores: typeof d.scores === "string" ? JSON.parse(d.scores) : d.scores || {},
+            answers: d.answers,
+            created_at: d.created_at || "",
+            ai_report: d.ai_report || "",
+          };
+        }
+      } catch {}
+    }
+  } catch {}
+  return null;
+}
+
+function buildSystemPrompt(
+  diagnosis: DiagnosisData | null,
+  topicExtra?: string,
+  userName?: string,
+  pastSessions?: ChatSession[]
+): string {
   const base = `당신은 HeartSync의 AI 관계 코치입니다. 10년 이상의 커플 상담 경력을 가진 전문 상담사처럼 행동하세요.
 
 역할:
@@ -182,8 +237,22 @@ function buildSystemPrompt(diagnosis: DiagnosisData | null, topicExtra?: string)
 
   let prompt = base;
 
+  if (userName) {
+    prompt += `\n\n## 내담자(사용자) 기본 정보\n- 이름/호칭: ${userName}님 (답변 시 자연스럽고 따뜻하게 이름을 불러주며 공감해주세요)`;
+  }
+
   if (topicExtra) {
     prompt += topicExtra;
+  }
+
+  const validPastSessions = (pastSessions || [])
+    .filter((s) => s.last_message_preview || (s.title && s.title !== "새 상담"))
+    .slice(0, 5);
+  if (validPastSessions.length > 0) {
+    const memoryLines = validPastSessions.map(
+      (s) => `- [${s.title}] 최근 대화 요약: "${s.last_message_preview || "상담 진행"}"`
+    );
+    prompt += `\n\n## 이전 상담 세션 기억 (장기 기억 컨텍스트)\n사용자가 과거 상담 세션에서 나눴던 주요 고민 주제입니다. 현재 질문과 연관될 경우 자연스럽게 맥락을 이어서 상담하세요:\n${memoryLines.join("\n")}`;
   }
 
   if (!diagnosis) return prompt;
@@ -192,11 +261,12 @@ function buildSystemPrompt(diagnosis: DiagnosisData | null, topicExtra?: string)
   const sortedCats = Object.entries(scores).sort(([, a], [, b]) => a - b);
   const weakest = sortedCats[0];
   const strongest = sortedCats[sortedCats.length - 1];
+  const itemAnalysis = analyzeDiagnosisAnswers(diagnosis.answers);
 
   const diagContext = `
 
 ## 사용자 진단 데이터 (최신)
-- 총점: ${diagnosis.total_score}/250 (${getGradeLabel(diagnosis.total_score)})
+- 총점: ${diagnosis.total_score}/250 (${getGradeLabel(diagnosis.total_score, scores.conflict)})
 - 갈등 관리: ${scores.conflict || 0}/50
 - 정서적 친밀감: ${scores.intimacy || 0}/50
 - 신뢰/애착: ${scores.trust || 0}/50
@@ -204,14 +274,15 @@ function buildSystemPrompt(diagnosis: DiagnosisData | null, topicExtra?: string)
 - 신체적 만족: ${scores.physical || 0}/50
 - 가장 강한 영역: ${categoryInfo[strongest[0]]?.label || strongest[0]} (${strongest[1]}/50)
 - 가장 약한 영역: ${categoryInfo[weakest[0]]?.label || weakest[0]} (${weakest[1]}/50)
+${itemAnalysis.promptSection}
 ${diagnosis.ai_report ? `\n## AI 분석 리포트 요약 (참고용)\n${diagnosis.ai_report.slice(0, 1500)}` : ""}
 
 ## 상담 지침
-- 사용자의 진단 데이터를 참고하여 맞춤형 조언을 제공하세요
-- 약한 영역(${categoryInfo[weakest[0]]?.label})에 대한 개선 방안을 우선적으로 다루세요
-- 강한 영역(${categoryInfo[strongest[0]]?.label})은 긍정적으로 인정해주세요
-- 사용자가 특정 영역에 대해 물으면 해당 점수를 기반으로 구체적으로 답변하세요
-- 진단 데이터를 자연스럽게 대화에 녹여내되, 점수를 직접적으로 나열하지 마세요`;
+- 사용자의 진단 점수와 50문항 개별 응답 데이터(애착 세부 유형, 가트맨 독소 활성 여부, 핵심 취약 문항)를 참고하여 맞춤형 조언을 제공하세요
+- 약한 영역(${categoryInfo[weakest[0]]?.label})과 사용자가 1~2점을 준 실제 취약 문항의 고민 맥락을 우선적으로 다루세요
+- 강한 영역(${categoryInfo[strongest[0]]?.label})과 강점 문항은 긍정적인 관계 자원으로 인정해주세요
+- 사용자가 특정 영역에 대해 물으면 해당 영역의 세부 문항 응답과 애착 역동(${itemAnalysis.attachment.primaryType})을 기반으로 구체적으로 답변하세요
+- 진단 데이터를 자연스럽게 대화에 녹여내되, 점수를 기계적으로 나열하지 마세요`;
 
   return prompt + diagContext;
 }
@@ -259,7 +330,8 @@ export default function ChatbotPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const systemPromptRef = useRef<string>("");
-  const savingRef = useRef(false);
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const userNameRef = useRef<string>("");
 
   useEffect(() => {
     loadInitialData();
@@ -271,26 +343,58 @@ export default function ChatbotPage() {
 
   const loadInitialData = async () => {
     try {
-      const user = await client.auth.me();
-      if (!user?.data) {
+      let currentUser: any = null;
+      try {
+        const userRes = await client.auth.me();
+        currentUser = userRes?.data || null;
+      } catch {
+        // Backend offline — check localStorage auth fallback
+      }
+
+      if (!currentUser) {
+        const storedUser = localStorage.getItem("user");
+        if (storedUser) {
+          try {
+            currentUser = JSON.parse(storedUser);
+          } catch {
+            currentUser = { name: "회원", role: "user" };
+          }
+        } else if (localStorage.getItem("token")) {
+          currentUser = { name: "회원", role: "user" };
+        }
+      }
+
+      const resolvedName =
+        currentUser?.name ||
+        currentUser?.nickname ||
+        (currentUser?.email ? String(currentUser.email).split("@")[0] : "");
+      userNameRef.current = resolvedName;
+
+      if (!currentUser) {
         setIsLoggedIn(false);
+        const localDiag = loadLocalDiagnosisFallback(diagnosisId);
+        setLatestDiagnosis(localDiag);
         setDiagLoading(false);
-        systemPromptRef.current = buildSystemPrompt(null);
+        systemPromptRef.current = buildSystemPrompt(localDiag, undefined, "");
         setShowTopicPicker(true);
-        setMessages([{
-          id: "welcome",
-          role: "assistant",
-          content: "안녕하세요! 저는 HeartSync AI 관계 코치예요 💕\n\n아래에서 상담 주제를 선택하면 더 전문적인 상담을 받으실 수 있어요.\n\n💡 로그인하시면 진단 결과 기반 맞춤 상담과 대화 기록 저장이 가능해요!",
-        }]);
+        if (localDiag) {
+          setWelcomeMessage(localDiag, "");
+        } else {
+          setMessages([{
+            id: "welcome",
+            role: "assistant",
+            content: "안녕하세요! 저는 HeartSync AI 관계 코치예요 💕\n\n아래에서 상담 주제를 선택하면 더 전문적인 상담을 받으실 수 있어요.\n\n💡 로그인하시면 진단 결과 기반 맞춤 상담과 대화 기록 저장이 가능해요!",
+          }]);
+        }
         return;
       }
 
       setIsLoggedIn(true);
-      await loadSessions();
+      const loadedSessions = await loadSessions();
 
       let diag: DiagnosisData | null = null;
 
-      if (diagnosisId) {
+      if (diagnosisId && !String(diagnosisId).startsWith("local_")) {
         try {
           const res = await client.entities.diagnoses.get({ id: diagnosisId });
           if (res.data) {
@@ -299,6 +403,7 @@ export default function ChatbotPage() {
               id: String(d.id),
               total_score: d.total_score || 0,
               scores: typeof d.scores === "string" ? JSON.parse(d.scores) : d.scores || {},
+              answers: d.answers,
               created_at: d.created_at || "",
               ai_report: d.ai_report || "",
             };
@@ -320,52 +425,60 @@ export default function ChatbotPage() {
               id: String(d.id),
               total_score: d.total_score || 0,
               scores: typeof d.scores === "string" ? JSON.parse(d.scores) : d.scores || {},
+              answers: d.answers,
               created_at: d.created_at || "",
               ai_report: d.ai_report || "",
             };
           }
-        } catch { /* no diagnosis */ }
+        } catch { /* no server diagnosis */ }
+      }
+
+      // Fallback to localStorage diagnosis if server diagnosis is unavailable or missing answers
+      const localDiag = loadLocalDiagnosisFallback(diagnosisId);
+      if (!diag && localDiag) {
+        diag = localDiag;
+      } else if (diag && !diag.answers && localDiag?.answers) {
+        diag.answers = localDiag.answers;
       }
 
       setLatestDiagnosis(diag);
-      systemPromptRef.current = buildSystemPrompt(diag);
+      systemPromptRef.current = buildSystemPrompt(diag, undefined, resolvedName, loadedSessions);
 
       if (sessionIdParam) {
-        await loadSession(parseInt(sessionIdParam, 10));
+        await loadSession(parseInt(sessionIdParam, 10), diag, loadedSessions);
       } else {
         setShowTopicPicker(true);
-        setWelcomeMessage(diag);
+        setWelcomeMessage(diag, resolvedName);
       }
     } catch {
-      systemPromptRef.current = buildSystemPrompt(null);
+      const localDiag = loadLocalDiagnosisFallback(diagnosisId);
+      setLatestDiagnosis(localDiag);
+      systemPromptRef.current = buildSystemPrompt(localDiag, undefined, userNameRef.current);
       setShowTopicPicker(true);
-      setMessages([{
-        id: "welcome",
-        role: "assistant",
-        content: "안녕하세요! 저는 HeartSync AI 관계 코치예요 💕\n\n아래에서 상담 주제를 선택해주세요.",
-      }]);
+      setWelcomeMessage(localDiag, userNameRef.current);
     } finally {
       setDiagLoading(false);
     }
   };
 
-  const setWelcomeMessage = (diag: DiagnosisData | null) => {
+  const setWelcomeMessage = (diag: DiagnosisData | null, userName = userNameRef.current) => {
+    const greetingName = userName ? `${userName}님, 안녕하세요!` : "안녕하세요!";
     if (diag) {
-      const grade = getGradeLabel(diag.total_score);
       const scores = diag.scores;
+      const grade = getGradeLabel(diag.total_score, scores.conflict);
       const sorted = Object.entries(scores).sort(([, a], [, b]) => a - b);
       const weakestCat = categoryInfo[sorted[0][0]];
 
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: `안녕하세요! 저는 HeartSync AI 관계 코치예요 💕\n\n📊 최근 진단 결과를 확인했어요:\n• 종합 점수: ${diag.total_score}/250 (${grade})\n• 가장 관심이 필요한 영역: ${weakestCat?.emoji || ""} ${weakestCat?.label || sorted[0][0]}\n\n아래에서 상담 주제를 선택하면 더 전문적인 상담을 받으실 수 있어요!`,
+        content: `${greetingName} 저는 HeartSync AI 관계 코치예요 💕\n\n📊 최근 진단 결과를 확인했어요:\n• 종합 점수: ${diag.total_score}/250 (${grade})\n• 가장 관심이 필요한 영역: ${weakestCat?.emoji || ""} ${weakestCat?.label || sorted[0][0]}\n\n아래에서 상담 주제를 선택하면 더 전문적인 상담을 받으실 수 있어요!`,
       }]);
     } else {
       setMessages([{
         id: "welcome",
         role: "assistant",
-        content: "안녕하세요! 저는 HeartSync AI 관계 코치예요 💕\n\n아래에서 상담 주제를 선택해주세요.\n\n💡 진단을 먼저 받으시면 더 맞춤화된 상담을 받으실 수 있어요!",
+        content: `${greetingName} 저는 HeartSync AI 관계 코치예요 💕\n\n아래에서 상담 주제를 선택해주세요.\n\n💡 진단을 먼저 받으시면 더 맞춤화된 상담을 받으실 수 있어요!`,
       }]);
     }
   };
@@ -373,7 +486,12 @@ export default function ChatbotPage() {
   const handleSelectTopic = (topic: TopicCategory) => {
     setSelectedTopic(topic);
     setShowTopicPicker(false);
-    systemPromptRef.current = buildSystemPrompt(latestDiagnosis, topic.systemPromptExtra);
+    systemPromptRef.current = buildSystemPrompt(
+      latestDiagnosis,
+      topic.systemPromptExtra,
+      userNameRef.current,
+      sessions
+    );
 
     const topicWelcome: Message = {
       id: "topic-welcome",
@@ -390,17 +508,23 @@ export default function ChatbotPage() {
   const handleChangeTopic = () => {
     setSelectedTopic(null);
     setShowTopicPicker(true);
-    systemPromptRef.current = buildSystemPrompt(latestDiagnosis);
+    systemPromptRef.current = buildSystemPrompt(
+      latestDiagnosis,
+      undefined,
+      userNameRef.current,
+      sessions
+    );
   };
 
-  const loadSessions = async () => {
+  const loadSessions = async (): Promise<ChatSession[]> => {
+    let serverItems: ChatSession[] = [];
     try {
       const res = await client.entities.chat_sessions.query({
         query: {},
         sort: "-updated_at",
         limit: 20,
       });
-      const items = (res.data?.items || []).map((s: any) => ({
+      serverItems = (res.data?.items || []).map((s: any) => ({
         id: s.id,
         title: s.title || "상담 대화",
         diagnosis_id: s.diagnosis_id,
@@ -408,29 +532,78 @@ export default function ChatbotPage() {
         last_message_preview: s.last_message_preview || "",
         updated_at: s.updated_at || s.created_at || "",
       }));
-      setSessions(items);
     } catch {
-      // Non-critical
+      // Non-critical — merge with local sessions below
     }
+
+    let localItems: ChatSession[] = [];
+    try {
+      const raw = localStorage.getItem("heartsync_local_chat_sessions");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) localItems = parsed;
+      }
+    } catch {}
+
+    const seenIds = new Set(serverItems.map((s) => s.id));
+    const merged = [...serverItems, ...localItems.filter((s) => !seenIds.has(s.id))];
+    setSessions(merged);
+    return merged;
   };
 
-  const loadSession = async (sessionId: number) => {
+  const loadSession = async (
+    sessionId: number,
+    diagOverride?: DiagnosisData | null,
+    sessionsOverride?: ChatSession[]
+  ) => {
     try {
-      const res = await client.entities.chat_messages.query({
-        query: { session_id: sessionId },
-        sort: "created_at",
-        limit: 200,
-      });
-      const items = res.data?.items || [];
+      let items: any[] = [];
+      try {
+        const res = await client.entities.chat_messages.query({
+          query: { session_id: sessionId },
+          sort: "created_at",
+          limit: 200,
+        });
+        items = res.data?.items || [];
+      } catch {
+        // Fallback to localStorage messages
+      }
+
+      if (items.length === 0) {
+        try {
+          const localRaw = localStorage.getItem(`heartsync_local_chat_messages_${sessionId}`);
+          if (localRaw) {
+            const parsed = JSON.parse(localRaw);
+            if (Array.isArray(parsed)) items = parsed;
+          }
+        } catch {}
+      }
+
+      const activeDiag = diagOverride !== undefined ? diagOverride : latestDiagnosis;
+      const activeSessions = sessionsOverride || sessions;
+      const targetSession = activeSessions.find((s) => s.id === sessionId);
+      const matchedTopic = targetSession
+        ? topicCategories.find(
+            (t) => targetSession.title.includes(t.label) || targetSession.title.includes(t.emoji)
+          ) || null
+        : null;
+
+      setSelectedTopic(matchedTopic);
+      systemPromptRef.current = buildSystemPrompt(
+        activeDiag,
+        matchedTopic?.systemPromptExtra,
+        userNameRef.current,
+        activeSessions
+      );
 
       if (items.length === 0) {
         setCurrentSessionId(sessionId);
-        setWelcomeMessage(latestDiagnosis);
+        setWelcomeMessage(activeDiag);
         return;
       }
 
       const loadedMessages: Message[] = items.map((m: any, idx: number) => ({
-        id: `loaded-${idx}-${m.id}`,
+        id: `loaded-${idx}-${m.id || idx}`,
         role: m.role as "user" | "assistant",
         content: m.content || "",
         dbId: m.id,
@@ -448,12 +621,13 @@ export default function ChatbotPage() {
 
   const createNewSession = async (): Promise<number | null> => {
     if (!isLoggedIn) return null;
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const initialTitle = selectedTopic ? `${selectedTopic.emoji} ${selectedTopic.label}` : "새 상담";
     try {
-      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
       const res = await client.entities.chat_sessions.create({
         data: {
-          title: selectedTopic ? `${selectedTopic.emoji} ${selectedTopic.label}` : "새 상담",
-          diagnosis_id: latestDiagnosis ? parseInt(latestDiagnosis.id, 10) : null,
+          title: initialTitle,
+          diagnosis_id: latestDiagnosis && !Number.isNaN(parseInt(latestDiagnosis.id, 10)) ? parseInt(latestDiagnosis.id, 10) : null,
           message_count: 0,
           last_message_preview: "",
           created_at: now,
@@ -466,42 +640,129 @@ export default function ChatbotPage() {
         return newId;
       }
     } catch {
-      // Non-critical
+      // Fallback to local session ID when backend is offline
     }
-    return null;
+
+    const fallbackId = Date.now();
+    try {
+      const localRaw = localStorage.getItem("heartsync_local_chat_sessions");
+      const localList: ChatSession[] = localRaw ? JSON.parse(localRaw) : [];
+      const newSession: ChatSession = {
+        id: fallbackId,
+        title: initialTitle,
+        diagnosis_id: latestDiagnosis ? parseInt(latestDiagnosis.id, 10) || undefined : undefined,
+        message_count: 0,
+        last_message_preview: "",
+        updated_at: now,
+      };
+      localStorage.setItem("heartsync_local_chat_sessions", JSON.stringify([newSession, ...localList]));
+      setSessions((prev) => [newSession, ...prev]);
+    } catch {}
+    setCurrentSessionId(fallbackId);
+    return fallbackId;
   };
 
-  const saveMessage = async (sessionId: number, role: string, content: string) => {
-    if (!isLoggedIn || savingRef.current) return;
-    savingRef.current = true;
-    try {
-      const now = new Date().toISOString().slice(0, 19).replace("T", " ");
-      await client.entities.chat_messages.create({
-        data: {
-          session_id: sessionId,
-          role,
-          content,
-          created_at: now,
-        },
-      });
+  const saveMessage = (sessionId: number, role: string, content: string) => {
+    if (!isLoggedIn) return;
+    const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+    const preview = content.length > 50 ? content.slice(0, 50) + "..." : content;
 
-      const preview = content.length > 50 ? content.slice(0, 50) + "..." : content;
-      await client.entities.chat_sessions.update({
-        id: String(sessionId),
-        data: {
-          message_count: messages.filter((m) => m.id !== "welcome" && m.id !== "topic-welcome").length + 1,
+    // 1. Immediately persist to localStorage so no message is ever lost
+    let updatedCount = 1;
+    let updatedTitle: string | undefined;
+    try {
+      const msgKey = `heartsync_local_chat_messages_${sessionId}`;
+      const existingMsgsRaw = localStorage.getItem(msgKey);
+      const existingMsgs: any[] = existingMsgsRaw ? JSON.parse(existingMsgsRaw) : [];
+      const nextMsgs = [
+        ...existingMsgs,
+        { id: Date.now() + Math.floor(Math.random() * 1000), session_id: sessionId, role, content, created_at: now },
+      ];
+      updatedCount = nextMsgs.length;
+      localStorage.setItem(msgKey, JSON.stringify(nextMsgs));
+
+      if (updatedCount <= 1 && role === "user") {
+        updatedTitle = selectedTopic
+          ? `${selectedTopic.emoji} ${content.length > 25 ? content.slice(0, 25) + "..." : content}`
+          : content.length > 30
+          ? content.slice(0, 30) + "..."
+          : content;
+      }
+
+      const sessRaw = localStorage.getItem("heartsync_local_chat_sessions");
+      const sessList: ChatSession[] = sessRaw ? JSON.parse(sessRaw) : [];
+      const idx = sessList.findIndex((s) => s.id === sessionId);
+      if (idx >= 0) {
+        sessList[idx] = {
+          ...sessList[idx],
+          ...(updatedTitle ? { title: updatedTitle } : {}),
+          message_count: updatedCount,
           last_message_preview: preview,
           updated_at: now,
-          ...(messages.filter((m) => m.id !== "welcome" && m.id !== "topic-welcome").length <= 1 && role === "user"
-            ? { title: selectedTopic ? `${selectedTopic.emoji} ${content.length > 25 ? content.slice(0, 25) + "..." : content}` : (content.length > 30 ? content.slice(0, 30) + "..." : content) }
-            : {}),
-        },
+        };
+      } else {
+        sessList.unshift({
+          id: sessionId,
+          title: updatedTitle || (selectedTopic ? `${selectedTopic.emoji} ${selectedTopic.label}` : "상담 대화"),
+          message_count: updatedCount,
+          last_message_preview: preview,
+          updated_at: now,
+        });
+      }
+      localStorage.setItem("heartsync_local_chat_sessions", JSON.stringify(sessList));
+      setSessions((prev) => {
+        const exists = prev.some((s) => s.id === sessionId);
+        if (exists) {
+          return prev.map((s) =>
+            s.id === sessionId
+              ? {
+                  ...s,
+                  ...(updatedTitle ? { title: updatedTitle } : {}),
+                  message_count: updatedCount,
+                  last_message_preview: preview,
+                  updated_at: now,
+                }
+              : s
+          );
+        }
+        return [
+          {
+            id: sessionId,
+            title: updatedTitle || (selectedTopic ? `${selectedTopic.emoji} ${selectedTopic.label}` : "상담 대화"),
+            message_count: updatedCount,
+            last_message_preview: preview,
+            updated_at: now,
+          },
+          ...prev,
+        ];
       });
-    } catch {
-      // Non-critical
-    } finally {
-      savingRef.current = false;
-    }
+    } catch {}
+
+    // 2. Enqueue sequential server persistence via Promise chain (fixes savingRef drop race condition)
+    saveQueueRef.current = saveQueueRef.current
+      .then(async () => {
+        await client.entities.chat_messages.create({
+          data: {
+            session_id: sessionId,
+            role,
+            content,
+            created_at: now,
+          },
+        });
+
+        await client.entities.chat_sessions.update({
+          id: String(sessionId),
+          data: {
+            message_count: updatedCount,
+            last_message_preview: preview,
+            updated_at: now,
+            ...(updatedTitle ? { title: updatedTitle } : {}),
+          },
+        });
+      })
+      .catch(() => {
+        // Non-critical: already persisted in localStorage above
+      });
   };
 
   const handleSend = useCallback(async (text?: string) => {
@@ -532,7 +793,15 @@ export default function ChatbotPage() {
     let fullContent = "";
     const finalSessionId = sessionId;
 
-    const fallbackCounseling = "두 분의 마음에 대해 말씀해주셔서 감사합니다. 관계에서 서운함이나 갈등을 느낄 때, 상대방이 내 마음을 온전히 알아주지 못한다는 느낌은 누구에게나 큰 외로움과 답답함으로 다가옵니다.\n\n존 가트맨 심리학 이론에서는 이러한 순간 가장 필요한 것을 '비난 없는 부드러운 연결(Softened Startup)'이라고 정의합니다. 상대방의 태도를 지적하기보다는 \"내가 요즘 이런 부분에서 조금 서운하고 소외감을 느꼈어. 우리 조금 더 편안하게 이야기해볼 수 있을까?\"처럼 내 감정과 소망을 솔직하고 담백하게 건네보시는 것을 권해드립니다.\n\n상대방도 방어적으로 반응하지 않고 안전하다고 느낄 때 비로소 진심을 털어놓을 수 있습니다. 오늘 저녁 편안한 분위기에서 작은 감정부터 가볍게 나눠보시는 건 어떨까요? 언제든 더 나누고 싶은 이야기가 있다면 편하게 말씀해주세요.";
+    const fallbackCounseling = generateContextualCounselingReply({
+      userMessage: msgText,
+      history: chatHistory,
+      diagnosis: latestDiagnosis,
+      topicId: selectedTopic?.id,
+    });
+
+    const isLegacyStaticFallback = (text: string) =>
+      text.startsWith("두 분의 마음에 대해 말씀해주셔서 감사합니다. 관계에서 서운함이나 갈등을 느낄 때");
 
     try {
       await client.ai.gentxt({
@@ -549,14 +818,18 @@ export default function ChatbotPage() {
               return;
             }
             fullContent += chunk.content;
-            setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
-            );
+            if (!isLegacyStaticFallback(fullContent.trim())) {
+              setMessages((prev) =>
+                prev.map((m) => (m.id === assistantId ? { ...m, content: fullContent } : m))
+              );
+            }
           }
         },
         onComplete: () => {
           setIsStreaming(false);
-          const finalContent = fullContent.trim() || fallbackCounseling;
+          const trimmed = fullContent.trim();
+          const finalContent =
+            !trimmed || isLegacyStaticFallback(trimmed) ? fallbackCounseling : trimmed;
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
           );
@@ -566,7 +839,9 @@ export default function ChatbotPage() {
         },
         onError: () => {
           setIsStreaming(false);
-          const finalContent = fullContent.trim() || fallbackCounseling;
+          const trimmed = fullContent.trim();
+          const finalContent =
+            !trimmed || isLegacyStaticFallback(trimmed) ? fallbackCounseling : trimmed;
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
           );
@@ -602,12 +877,29 @@ export default function ChatbotPage() {
     setRatingValue(0);
     setRatingTags([]);
     setRatingComment("");
-    setWelcomeMessage(latestDiagnosis);
-    systemPromptRef.current = buildSystemPrompt(latestDiagnosis);
+    setWelcomeMessage(latestDiagnosis, userNameRef.current);
+    systemPromptRef.current = buildSystemPrompt(
+      latestDiagnosis,
+      undefined,
+      userNameRef.current,
+      sessions
+    );
   };
 
   const handleDeleteSession = async (sessionId: number, e: React.MouseEvent) => {
     e.stopPropagation();
+    try {
+      localStorage.removeItem(`heartsync_local_chat_messages_${sessionId}`);
+      const sessRaw = localStorage.getItem("heartsync_local_chat_sessions");
+      if (sessRaw) {
+        const sessList: ChatSession[] = JSON.parse(sessRaw);
+        localStorage.setItem(
+          "heartsync_local_chat_sessions",
+          JSON.stringify(sessList.filter((s) => s.id !== sessionId))
+        );
+      }
+    } catch {}
+
     try {
       const msgRes = await client.entities.chat_messages.query({
         query: { session_id: sessionId },
@@ -618,14 +910,15 @@ export default function ChatbotPage() {
         await client.entities.chat_messages.delete({ id: String(msg.id) });
       }
       await client.entities.chat_sessions.delete({ id: String(sessionId) });
-      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
-      if (currentSessionId === sessionId) {
-        handleNewChat();
-      }
-      toast.success("상담 기록이 삭제되었습니다.");
     } catch {
-      toast.error("삭제에 실패했습니다.");
+      // Non-critical if local-only session
     }
+
+    setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    if (currentSessionId === sessionId) {
+      handleNewChat();
+    }
+    toast.success("상담 기록이 삭제되었습니다.");
   };
 
   const feedbackTagOptions = [
@@ -861,8 +1154,8 @@ export default function ChatbotPage() {
                 <div className="text-center">
                   <span className="text-xl font-extrabold text-gray-900">{latestDiagnosis.total_score}</span>
                   <span className="text-[10px] text-gray-400">/250</span>
-                  <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${getGradeColor(latestDiagnosis.total_score)}`}>
-                    {getGradeLabel(latestDiagnosis.total_score)}
+                  <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 ${getGradeColor(latestDiagnosis.total_score, latestDiagnosis.scores?.conflict)}`}>
+                    {getGradeLabel(latestDiagnosis.total_score, latestDiagnosis.scores?.conflict)}
                   </div>
                 </div>
                 <div className="flex-1 flex flex-wrap gap-1">

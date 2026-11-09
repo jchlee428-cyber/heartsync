@@ -10,6 +10,7 @@ import PartnerInviteModal from "@/components/PartnerInviteModal";
 import DailyRoutineCard from "@/components/DailyRoutineCard";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 import Footer from "@/components/Footer";
+import { analyzeDiagnosisAnswers } from "@/lib/diagnosisAnalysis";
 
 const client = createClient();
 
@@ -36,16 +37,28 @@ function getScoreIcon(score: number, max: number) {
   return <TrendingDown className="w-4 h-4" />;
 }
 
-function getOverallGrade(total: number) {
+function getOverallGrade(total: number, conflictScore?: number) {
+  if (total < 140 || (conflictScore !== undefined && conflictScore > 0 && conflictScore < 25)) {
+    return {
+      grade: total >= 140 ? "위험 (갈등 주의)" : "위험",
+      label: "Red Flag 🔴",
+      color: "text-red-600",
+      bg: "bg-red-50",
+      borderColor: "border-red-200",
+      icon: <AlertTriangle className="w-5 h-5" />,
+    };
+  }
   if (total >= 210) return { grade: "매우 건강", label: "Green Flag 🟢", color: "text-green-600", bg: "bg-green-50", borderColor: "border-green-200", icon: <CheckCircle2 className="w-5 h-5" /> };
   if (total >= 175) return { grade: "양호", label: "Blue Flag 🔵", color: "text-blue-600", bg: "bg-blue-50", borderColor: "border-blue-200", icon: <Shield className="w-5 h-5" /> };
-  if (total >= 140) return { grade: "주의 필요", label: "Yellow Flag 🟡", color: "text-amber-600", bg: "bg-amber-50", borderColor: "border-amber-200", icon: <Shield className="w-5 h-5" /> };
-  return { grade: "위험", label: "Red Flag 🔴", color: "text-red-600", bg: "bg-red-50", borderColor: "border-red-200", icon: <AlertTriangle className="w-5 h-5" /> };
+  return { grade: "주의 필요", label: "Yellow Flag 🟡", color: "text-amber-600", bg: "bg-amber-50", borderColor: "border-amber-200", icon: <Shield className="w-5 h-5" /> };
 }
 
 function getOverallMessage(total: number, conflictScore: number) {
-  if (total < 140 || conflictScore < 25) {
+  if (total < 140) {
     return "관계에 심각한 위험 신호가 감지되었습니다. 전문적인 분석이 필요합니다.";
+  }
+  if (conflictScore > 0 && conflictScore < 25) {
+    return "종합 점수는 일정 수준 이상이나, 갈등 관리 영역(25점 미만)에서 심각한 위험 신호가 감지되어 위험(Red Flag) 등급으로 판정되었습니다. 소통 패턴에 대한 즉각적인 점검이 필요합니다.";
   }
   if (total < 175) {
     return "관계에 개선이 필요한 영역이 있습니다. 구체적인 솔루션을 확인해보세요.";
@@ -132,7 +145,7 @@ function getCategoryInterpretation(cat: string, score: number): string {
 }
 
 /** Build the detailed AI prompt */
-function buildAIPrompt(scores: Record<string, number>, totalScore: number) {
+function buildAIPrompt(scores: Record<string, number>, totalScore: number, rawAnswers?: unknown) {
   const conflictScore = scores.conflict || 0;
   const intimacyScore = scores.intimacy || 0;
   const trustScore = scores.trust || 0;
@@ -147,13 +160,15 @@ function buildAIPrompt(scores: Record<string, number>, totalScore: number) {
   const strongest = sortedCats[0];
   const weakest = sortedCats[sortedCats.length - 1];
 
-  const riskLevel = totalScore < 140 || conflictScore < 25
+  const riskLevel = totalScore < 140 || (conflictScore > 0 && conflictScore < 25)
     ? "위험 (Red Flag)"
     : totalScore < 175
     ? "주의 필요 (Yellow Flag)"
     : totalScore < 210
     ? "양호 (Blue Flag)"
     : "매우 건강 (Green Flag)";
+
+  const itemAnalysis = analyzeDiagnosisAnswers(rawAnswers);
 
   return `당신은 존 가트맨(John Gottman) 이론, 애착 이론(Bowlby & Ainsworth), 스턴버그의 사랑의 삼각형 이론, EFT(감정중심치료), 인지행동치료(CBT)에 정통한 15년 경력의 커플 관계 전문 상담사입니다.
 
@@ -170,44 +185,44 @@ function buildAIPrompt(scores: Record<string, number>, totalScore: number) {
 - 신뢰/애착 ${trustScore}/50: ${trustScore < 25 ? "⚠️ 위험 수준 — 불안정 애착 패턴 강함" : trustScore < 35 ? "주의 필요 — 신뢰 침식 진행 중" : "양호 이상"}
 - 가치관 ${valuesScore}/50: ${valuesScore < 25 ? "⚠️ 위험 수준 — 핵심 가치관 충돌" : valuesScore < 35 ? "주의 필요 — 일부 영원한 문제 존재" : "양호 이상"}
 - 신체적 만족 ${physicalScore}/50: ${physicalScore < 25 ? "⚠️ 위험 수준 — 신체적 친밀감 심각하게 감소" : physicalScore < 35 ? "주의 필요 — 성적 소통 개선 필요" : "양호 이상"}
-
+${itemAnalysis.promptSection}
 ## 리포트 작성 가이드
 아래 형식을 **정확히** 따라 한국어 맞춤형 심층 분석 리포트를 작성해주세요. 각 섹션의 제목은 반드시 아래와 동일하게 사용하세요.
 
 ### 📊 종합 진단 결과
-위험 등급에 맞는 핵심 메시지와 전반적인 관계 상태 분석. 총점과 각 영역의 균형을 고려한 종합 평가. (4-5문장)
+위험 등급에 맞는 핵심 메시지와 전반적인 관계 상태 분석. 총점과 각 영역의 균형, 그리고 50문항 개별 응답에서 드러난 주된 애착 역동(${itemAnalysis.attachment.primaryType})과 핵심 강점·취약점을 고려한 종합 평가. (4-5문장)
 
 ### ⚡ 갈등 관리 분석 (${conflictScore}/50)
-**강점:** 이 점수에서 발견되는 긍정적 측면 (1-2문장)
-**개선점:** 구체적 문제점과 심리학적 원인 (2-3문장)
+**강점:** 이 점수 및 개별 응답에서 발견되는 긍정적 측면 (1-2문장)
+**개선점:** 사용자가 실제 체크한 갈등 취약 문항과 활성화된 가트맨 독소(${itemAnalysis.horsemen.summaryText})를 구체적으로 짚어 심리학적 원인을 설명 (2-3문장)
 **실천 전략:** 가트맨의 '부드러운 시작(Soft Start-up)' 기법, '회복 시도(Repair Attempt)' 방법, '비난 대신 요청하기' 등 구체적 기법 제시 (2-3개)
 
 ### 💕 정서적 친밀감 분석 (${intimacyScore}/50)
 **강점:** 긍정적 측면 (1-2문장)
-**개선점:** 구체적 문제점 (2-3문장)
+**개선점:** 정서적 친밀감 문항(Q11~Q20) 응답에 나타난 구체적 문제점 (2-3문장)
 **실천 전략:** '사랑의 지도(Love Map)' 업데이트 방법, '감정 은행 계좌' 입금 전략, 브레네 브라운의 '취약성 공유' 실천법 등 (2-3개)
 
 ### 🤝 신뢰/애착 분석 (${trustScore}/50)
 **강점:** 긍정적 측면 (1-2문장)
-**개선점:** 애착 유형(안정형/불안형/회피형)과 연관된 구체적 분석 (2-3문장)
+**개선점:** 산출된 애착 세부 프로파일(${itemAnalysis.attachment.summaryText})을 바탕으로 불안형 애착 문항과 회피형 애착 문항 중 어디에서 취약성이 두드러졌는지 정확히 구분하여 분석 (2-3문장)
 **실천 전략:** 애착 안정화 전략, 볼비의 '안전 기지(Secure Base)' 구축법, 신뢰 회복을 위한 일관성 있는 행동 패턴 등 (2-3개)
 
 ### 🌟 가치관 분석 (${valuesScore}/50)
 **강점:** 긍정적 측면 (1-2문장)
-**개선점:** '영원한 문제(Perpetual Problems)'와 '해결 가능한 문제(Solvable Problems)' 구분 (2-3문장)
+**개선점:** 가치관 문항(Q31~Q40: 재정, 자녀, 양가 가족, 여가, 종교/정치, 가사분담, 커리어 등) 중 실제 낮게 응답한 항목을 토대로 '영원한 문제(Perpetual Problems)'와 '해결 가능한 문제(Solvable Problems)' 구분 (2-3문장)
 **실천 전략:** 가트맨의 '꿈 속의 꿈(Dreams Within Conflict)' 대화법, 공유 의미 체계 구축 방법 등 (2-3개)
 
 ### 🔥 신체적 만족도 분석 (${physicalScore}/50)
 **강점:** 긍정적 측면 (1-2문장)
-**개선점:** 성적 소통, 비성적 스킨십, 정서-신체 연결 관점에서의 분석 (2-3문장)
+**개선점:** 신체/성적 만족도 문항(Q41~Q50: 성적 소통, 비성적 스킨십, 성관계 거부/회피, 정서-신체 연결 등)의 실제 응답을 반영한 분석 (2-3문장)
 **실천 전략:** 성적 소통 향상법, 일상적 스킨십 증가 전략, 정서적 연결 강화 방법 등 (2-3개)
 
 ### 🎯 핵심 위험 요소 TOP 3
-가장 시급하게 개선이 필요한 3가지 문제를 우선순위별로 나열. 각 항목에 심리학적 근거와 방치 시 예상되는 결과를 포함. (번호 매기기)
+위 '사용자가 직접 체크한 핵심 취약/갈등 문항(건강도 1~2점)' 리스트에서 가장 시급하게 개선이 필요한 3가지 실제 문제를 우선순위별로 나열. 각 항목에 심리학적 근거와 방치 시 예상되는 결과를 포함. (번호 매기기)
 
 ### 💡 30일 맞춤 개선 플랜
 4주간 실천할 수 있는 구체적인 주간 계획:
-- **1주차:** 가장 시급한 문제에 대한 첫 번째 실천 과제
+- **1주차:** 가장 시급한 취약 문항에 대한 첫 번째 실천 과제
 - **2주차:** 두 번째 핵심 영역 개선 과제
 - **3주차:** 세 번째 영역 + 복합적 실천
 - **4주차:** 전체 점검 및 지속 가능한 습관 형성
@@ -216,11 +231,11 @@ function buildAIPrompt(scores: Record<string, number>, totalScore: number) {
 따뜻하면서도 전문적인 마무리 메시지. 변화의 가능성에 대한 희망적 메시지와 함께, 필요 시 전문 상담 권유. (3-4문장)
 
 ## 작성 원칙
-1. 점수가 높은 영역도 반드시 강점으로 인정하고 격려하세요.
-2. 점수가 낮은 영역은 비판이 아닌 '성장 가능성'의 관점에서 서술하세요.
-3. 모든 실천 전략은 구체적이고 즉시 실행 가능해야 합니다 (예: "오늘 저녁 상대방에게 '오늘 하루 어땠어?'라고 물어보세요").
-4. 심리학 이론명을 자연스럽게 포함하되, 일반인이 이해할 수 있도록 쉽게 설명하세요.
-5. 사용자가 "내 상황을 정확히 알고 있다"고 느끼도록 점수 데이터에 기반한 구체적 분석을 하세요.
+1. 점수가 높은 영역과 강점 문항(4~5점)도 반드시 강점으로 인정하고 격려하세요.
+2. 점수가 낮은 영역과 취약 문항(1~2점)은 비판이 아닌 '성장 가능성'의 관점에서 서술하세요.
+3. 막연한 추측 대신 반드시 위 '50문항 개별 응답 기반 정밀 임상 데이터'에 명시된 실제 취약 문항과 애착 지수를 근거로 서술하세요.
+4. 모든 실천 전략은 구체적이고 즉시 실행 가능해야 합니다 (예: "오늘 저녁 상대방에게 '오늘 하루 어땠어?'라고 물어보세요").
+5. 심리학 이론명을 자연스럽게 포함하되, 일반인이 이해할 수 있도록 쉽게 설명하세요.
 6. 전체 분량은 충분히 상세하게 (약 1500-2000자) 작성하세요.`;
 }
 
@@ -665,7 +680,7 @@ export default function ResultPage() {
     }
   }, [checkingPlan, hasPaidPlan, diagnosis]);
 
-  const generateStandardReport = (scores: any, totalScore: number) => {
+  const generateStandardReport = (scores: any, totalScore: number, rawAnswers?: unknown) => {
     const sc = scores || {};
     const conflict = sc.conflict || 35;
     const intimacy = sc.intimacy || 38;
@@ -673,14 +688,35 @@ export default function ResultPage() {
     const values = sc.values || 34;
     const physical = sc.physical || 32;
     const total = totalScore || (conflict + intimacy + trust + values + physical);
+    const itemAnalysis = analyzeDiagnosisAnswers(rawAnswers);
+
+    const topWeakLines =
+      itemAnalysis.criticalItems.length > 0
+        ? itemAnalysis.criticalItems
+            .slice(0, 3)
+            .map(
+              (item, idx) =>
+                `${idx + 1}. **${item.question.partLabel} — ${item.question.concept} (Q${item.question.id}):** "${item.question.text}" 문항에서 '${item.answerLabel}'(건강도 ${item.convertedScore}/5점)로 응답하여 최우선적인 소통 점검이 필요합니다.`
+            )
+            .join("\n")
+        : `1. **비난에 이은 방어적 태도:** 대화가 공격으로 느껴질 때 변명하거나 역공하는 패턴 (방치 시 심리적 거리 확대)\n2. **해결되지 않은 서운함의 누적:** 즉시 풀지 못한 작은 감정들이 체념으로 변질될 위험\n3. **소통 시간의 절대적 부족:** 서로의 일상에 대한 공감 결여로 인한 정서적 고립감`;
+
+    const horsemenNote =
+      itemAnalysis.horsemen.activeHorsemen.length > 0
+        ? `특히 50문항 개별 응답 분석에서 **${itemAnalysis.horsemen.activeHorsemen.join(", ")}** 패턴이 활성화되어 있는 것으로 나타나 의식적인 대화 전환이 중요합니다.`
+        : `서운함이 발생했을 때 즉각적이고 건강한 방식으로 표현하기보다는, 혼자 감정을 삭이다가 한꺼번에 표출되거나 침묵(담쌓기)으로 이어지는 패턴이 관찰됩니다.`;
+
+    const attachmentNote = itemAnalysis.hasAnswers
+      ? `세부 애착 문항 분석 결과 **${itemAnalysis.attachment.summaryText}** 패턴이 확인됩니다. 이에 따라 상대방의 반응 속도나 독립적 공간을 해석할 때 정서적 오해가 생기지 않도록 조율이 필요합니다.`
+      : `불안형-회피형 애착 역동이 미세하게 감지되며, 상대방의 침묵을 거절로 오해하거나 독립성을 침해로 받아들이는 악순환이 발생할 수 있습니다.`;
 
     return `### 📊 종합 진단 결과
-이번 심층 관계 진단 결과, 두 분의 관계 종합 점수는 ${total}/250점입니다.
-전반적으로 서로를 향한 정서적 유대감과 애착의 토대가 든든하게 유지되고 있으나, 갈등 상황에서 무의식적으로 방어적인 대화 패턴이 나타나며 심리적 에너지가 소모되는 경향이 있습니다. 존 가트맨(John Gottman) 연구에 따르면 관계의 성패는 갈등의 유무가 아니라 '갈등을 회복하는 속도와 태도'에 달려 있습니다. 현재 두 분은 상호 보완적인 소통 훈련을 통해 신뢰와 친밀감을 크게 도약시킬 수 있는 중요한 전환점에 있습니다.
+이번 심층 관계 진단 결과, 두 분의 관계 종합 점수는 ${total}/250점이며, 세부 응답 기반 애착 프로파일은 **${itemAnalysis.attachment.primaryType}**으로 분석되었습니다.
+전반적으로 서로를 향한 정서적 유대감과 애착의 토대가 유지되고 있으나, 특정 갈등 상황에서 무의식적인 방어·회피 대화 패턴이 나타나며 심리적 에너지가 소모되는 경향이 있습니다. 존 가트맨(John Gottman) 연구에 따르면 관계의 성패는 갈등의 유무가 아니라 '갈등을 회복하는 속도와 태도'에 달려 있습니다. 현재 두 분은 상호 보완적인 소통 훈련을 통해 신뢰와 친밀감을 크게 도약시킬 수 있는 중요한 전환점에 있습니다.
 
 ### ⚡ 갈등 관리 분석 (${conflict}/50)
 **강점:** 갈등이 극단적인 대립으로 치닫기 전에 서로를 배려하려는 내면의 의지가 여전히 확고합니다.
-**개선점:** 서운함이 발생했을 때 즉각적이고 건강한 방식으로 표현하기보다는, 혼자 감정을 삭이다가 한꺼번에 표출되거나 침묵(담쌓기)으로 이어지는 패턴이 관찰됩니다.
+**개선점:** ${horsemenNote}
 **실천 전략:**
 1. **부드러운 시작(Soft Start-up):** 비난이 아닌 "나는 ~할 때 ~한 감정을 느껴"라는 '나-전달법(I-Message)'으로 대화를 시작하세요.
 2. **20분 브레이크 타임:** 대화 중 심박수가 상승하거나 감정이 격해지면 "잠깐 20분만 쉬었다가 다시 이야기하자"고 약속하고 감정을 가라앉히세요.
@@ -696,7 +732,7 @@ export default function ResultPage() {
 
 ### 🤝 신뢰/애착 분석 (${trust}/50)
 **강점:** 오랜 시간 함께 쌓아온 관계적 연속성과 상대방에 대한 근본적인 믿음이 존재합니다.
-**개선점:** 불안형-회피형 애착 역동이 미세하게 감지되며, 상대방의 침묵을 거절로 오해하거나 독립성을 침해로 받아들이는 악순환이 발생할 수 있습니다.
+**개선점:** ${attachmentNote}
 **실천 전략:**
 1. **안전 기지(Secure Base) 구축:** 상대방이 감정적으로 지쳐 있을 때 재촉하지 않고 편안한 안식처가 되어주세요.
 2. **예측 가능한 투명성:** 사소한 일정이나 감정 변화도 미리 공유하여 불안감을 사전에 차단하세요.
@@ -719,9 +755,7 @@ export default function ResultPage() {
 3. **편안한 감정 교류 우선:** 신체적 친밀감 이전에 충분한 정서적 안정감이 먼저 조성되도록 배려하세요.
 
 ### 🎯 핵심 위험 요소 TOP 3
-1. **비난에 이은 방어적 태도:** 대화가 공격으로 느껴질 때 변명하거나 역공하는 패턴 (방치 시 심리적 거리 확대)
-2. **해결되지 않은 서운함의 누적:** 즉시 풀지 못한 작은 감정들이 체념으로 변질될 위험
-3. **소통 시간의 절대적 부족:** 서로의 일상에 대한 공감 결여로 인한 정서적 고립감
+${topWeakLines}
 
 ### 💡 30일 맞춤 개선 플랜
 - **1주차 (감정 정화):** 비난하지 않고 '나-전달법'으로만 대화하기 & 매일 1가지 고마운 점 말하기
@@ -741,7 +775,8 @@ export default function ResultPage() {
 
     const scores = typeof data.scores === "string" ? JSON.parse(data.scores) : data.scores;
     const totalScore = data.total_score || 0;
-    const prompt = buildAIPrompt(scores, totalScore);
+    const rawAnswers = data.answers;
+    const prompt = buildAIPrompt(scores, totalScore, rawAnswers);
 
     const finalizeAndSave = async (reportText: string) => {
       fullReportRef.current = reportText;
@@ -809,19 +844,19 @@ export default function ResultPage() {
         onComplete: async () => {
           const content = fullReportRef.current.trim();
           if (!content || content.includes("[ERROR]") || content.length < 50) {
-            const fallback = generateStandardReport(scores, totalScore);
+            const fallback = generateStandardReport(scores, totalScore, rawAnswers);
             await finalizeAndSave(fallback);
           } else {
             await finalizeAndSave(content);
           }
         },
         onError: async () => {
-          const fallback = generateStandardReport(scores, totalScore);
+          const fallback = generateStandardReport(scores, totalScore, rawAnswers);
           await finalizeAndSave(fallback);
         },
       });
     } catch {
-      const fallback = generateStandardReport(scores, totalScore);
+      const fallback = generateStandardReport(scores, totalScore, rawAnswers);
       await finalizeAndSave(fallback);
     }
   };
@@ -936,7 +971,12 @@ export default function ResultPage() {
   }, [aiReport, isGenerating]);
 
   const getShareText = useCallback(() => {
-    const grade = getOverallGrade(diagnosis?.total_score || 0);
+    const parsedScores = diagnosis?.scores
+      ? typeof diagnosis.scores === "string"
+        ? JSON.parse(diagnosis.scores)
+        : diagnosis.scores
+      : {};
+    const grade = getOverallGrade(diagnosis?.total_score || 0, parsedScores?.conflict);
     return `💕 HeartSync 커플 관계 진단 결과\n\n종합 점수: ${diagnosis?.total_score || 0}/250 (${grade.grade})\n\nAI 심리학 기반 심층 분석 리포트를 확인해보세요!`;
   }, [diagnosis]);
 
@@ -1019,7 +1059,7 @@ export default function ResultPage() {
   const scores = typeof diagnosis.scores === "string" ? JSON.parse(diagnosis.scores) : diagnosis.scores;
   const totalScore = diagnosis.total_score || 0;
   const conflictScore = scores.conflict || 0;
-  const overall = getOverallGrade(totalScore);
+  const overall = getOverallGrade(totalScore, conflictScore);
   const overallMessage = getOverallMessage(totalScore, conflictScore);
 
   // Find weakest area for paywall messaging

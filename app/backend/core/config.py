@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     # AI & External APIs
     app_ai_base_url: str = ""
     app_ai_key: str = ""
+    app_ai_model: str = ""
     oss_service_url: str = ""
     oss_api_key: str = ""
 
