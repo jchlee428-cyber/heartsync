@@ -6,6 +6,7 @@ import { atoms } from '@metagptx/web-sdk/plugins';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  envPrefix: ['VITE_TOSS_', 'VITE_API_', 'VITE_APP_', 'VITE_PUBLIC_'],
   plugins: [
     viteSourceLocator({
       prefix: 'mgx', // 前缀用于标识源代码位置，不能修改
