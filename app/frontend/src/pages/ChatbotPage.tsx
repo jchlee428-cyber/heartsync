@@ -220,20 +220,14 @@ function buildSystemPrompt(
   userName?: string,
   pastSessions?: ChatSession[]
 ): string {
-  const base = `당신은 HeartSync의 AI 관계 코치입니다. 10년 이상의 커플 상담 경력을 가진 전문 상담사처럼 행동하세요.
+  const base = `당신은 HeartSync의 1:1 전담 커플·부부 심리상담 코치입니다. 15년 이상의 임상 상담 경력을 가진 따뜻하고 통찰력 있는 실제 인간 상담사처럼 대화하세요.
 
-역할:
-- 사용자의 관계 고민을 경청하고 공감합니다
-- 구체적이고 실천 가능한 조언을 제공합니다
-- 따뜻하면서도 전문적인 톤을 유지합니다
-- 필요시 소통 기법, 갈등 해결 전략을 제안합니다
-- 가트맨 이론, 애착 이론, EFT, CBT 등 심리학 이론에 기반한 조언을 제공합니다
-
-규칙:
-- 항상 한국어로 답변합니다
-- 답변은 간결하되 핵심을 담아주세요 (3-5문장)
-- 판단하지 않고 중립적인 입장을 유지합니다
-- 심각한 상황(폭력, 학대 등)에는 전문 상담 기관을 안내합니다`;
+핵심 대화 원칙 (매우 중요):
+1. **직전 맥락 및 단답형 완벽 미러링**: 사용자가 직전 질문에 대해 짧게 대답하거나 단어 하나(예: "선물", "말투", "내가 먼저 사과해", "3일 정도")로 답하면, 반드시 첫 문장에서 사용자의 그 대답을 그대로 받아치며("아, '선물'을 가장 중요한 애정 표현으로 느끼시는군요!") 맥락을 이어가세요. 절대 동문서답하거나 엉뚱한 일반론으로 넘어가지 마세요.
+2. **딱딱한 교과서/강의식 소제목 금지**: '💡 심리학적 핵심 원리', '✨ 오늘 바로 실천해볼 수 있는 맞춤 대화법', '❓ 함께 더 이야기해보고 싶어요' 같은 기계적인 보고서 소제목이나 학자 이름 나열을 반복하지 마세요. 마주 앉아 눈을 보며 대화하듯 자연스러운 문단 호흡과 따뜻한 구어체로 이야기하세요.
+3. **실전 대화 스크립트 제시**: 파트너에게 실제로 카톡이나 대면으로 건넬 수 있는 구체적인 문장은 인용구(> 💬 "...") 형태로 자연스럽게 1개 제시하세요.
+4. **적응형 티키타카 호흡**: 사용자의 발화가 짧으면 코치도 너무 길지 않게 핵심 공감 + 맞춤 통찰 + 열린 질문 1개로 자연스럽게 티키타카 대화를 이어가세요.
+5. **안전 원칙**: 항상 한국어로 답변하며, 신체적 폭력이나 심각한 학대 상황에서는 내담자의 안전 확보와 전문 기관 안내를 최우선으로 합니다.`;
 
   let prompt = base;
 
@@ -801,7 +795,61 @@ export default function ChatbotPage() {
     });
 
     const isLegacyStaticFallback = (text: string) =>
-      text.startsWith("두 분의 마음에 대해 말씀해주셔서 감사합니다. 관계에서 서운함이나 갈등을 느낄 때");
+      text.startsWith("두 분의 마음에 대해 말씀해주셔서 감사합니다. 관계에서 서운함이나 갈등을 느낄 때") ||
+      text.includes("💡 **심리학적 핵심 원리") ||
+      text.includes("❓ **함께 더 이야기해보고 싶어요:");
+
+    const directApiKey = (
+      (import.meta as any).env?.VITE_OPENAI_API_KEY ||
+      (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+      (import.meta as any).env?.VITE_AI_API_KEY ||
+      localStorage.getItem("heartsync_ai_api_key") ||
+      ""
+    ).trim();
+
+    if (directApiKey) {
+      try {
+        const isGemini = directApiKey.startsWith("AIza");
+        const endpoint = isGemini
+          ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+          : "https://api.openai.com/v1/chat/completions";
+        const modelName = isGemini ? "gemini-2.5-flash" : "gpt-4o-mini";
+
+        const resp = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${directApiKey}`,
+          },
+          body: JSON.stringify({
+            model: modelName,
+            messages: [
+              { role: "system", content: systemPromptRef.current },
+              ...chatHistory,
+              { role: "user", content: msgText },
+            ],
+            temperature: 0.7,
+          }),
+        });
+
+        if (resp.ok) {
+          const data = await resp.json();
+          const replyText = data?.choices?.[0]?.message?.content?.trim();
+          if (replyText) {
+            setIsStreaming(false);
+            setMessages((prev) =>
+              prev.map((m) => (m.id === assistantId ? { ...m, content: replyText } : m))
+            );
+            if (finalSessionId) {
+              saveMessage(finalSessionId, "assistant", replyText);
+            }
+            return;
+          }
+        }
+      } catch {
+        // Fall through to backend / conversational engine
+      }
+    }
 
     try {
       await client.ai.gentxt({

@@ -39,9 +39,13 @@ class Settings(BaseSettings):
     admin_user_email: str = ""
 
     # AI & External APIs
-    app_ai_base_url: str = ""
+    app_ai_base_url: str = "https://api.openai.com/v1"
     app_ai_key: str = ""
     app_ai_model: str = ""
+    openai_api_key: str = ""
+    gemini_api_key: str = ""
+    google_api_key: str = ""
+    deepseek_api_key: str = ""
     oss_service_url: str = ""
     oss_api_key: str = ""
 
@@ -63,6 +67,7 @@ class Settings(BaseSettings):
             return os.environ.get("PYTHON_BACKEND_URL", f"http://{display_host}:{self.port}")
 
     class Config:
+        env_file = (".env", "../.env")
         case_sensitive = False
         extra = "ignore"
 
