@@ -1,11 +1,32 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, Send, Bot, User, Trash2, Sparkles, BarChart3, ChevronDown, Plus, MessageSquare, Clock, Tag, Star, X, ThumbsUp } from "lucide-react";
+import { ArrowLeft, Send, Bot, User, Trash2, Sparkles, BarChart3, ChevronDown, Plus, MessageSquare, Clock, Tag, Star, X, ThumbsUp, Calendar, ShieldAlert, Lock, Unlock } from "lucide-react";
 import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
 import { analyzeDiagnosisAnswers } from "@/lib/diagnosisAnalysis";
-import { generateContextualCounselingReply } from "@/lib/counselingEngine";
+import {
+  generateContextualCounselingReply,
+  classifyQuestionIntent,
+} from "@/lib/counselingEngine";
 import { submitUserReview, FEEDBACK_TAG_LABELS } from "@/lib/reviewStore";
+import {
+  detectSafetyCrisis,
+  generateCrisisSafeResponse,
+  SAFETY_SYSTEM_PROMPT_RULES,
+} from "@/lib/safetyGuardrails";
+import {
+  getMemoryConsent,
+  setMemoryConsent,
+  clearCoachMemory,
+  updateCoachMemoryFromTurn,
+  buildPersonalizationPromptContext,
+} from "@/lib/coachMemory";
+import {
+  resolveCurrentUserId,
+  loadOrCreateProgramPlan,
+  getProgramProgressSummary,
+} from "@/lib/improvementProgram";
+import ImprovementProgramModal from "@/components/ImprovementProgramModal";
 
 const client = createClient();
 
@@ -215,30 +236,63 @@ function loadLocalDiagnosisFallback(targetId?: string | null): DiagnosisData | n
   return null;
 }
 
+function getLocalSessionsKey(userId: string): string {
+  const safeId = (userId || "guest").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `heartsync_local_chat_sessions_${safeId}`;
+}
+
+function getLocalMessagesKey(userId: string, sessionId: number): string {
+  const safeId = (userId || "guest").trim().replace(/[^a-zA-Z0-9_-]/g, "_");
+  return `heartsync_local_chat_messages_${safeId}_${sessionId}`;
+}
+
 function buildSystemPrompt(
   diagnosis: DiagnosisData | null,
   topicExtra?: string,
   userName?: string,
-  pastSessions?: ChatSession[]
+  pastSessions?: ChatSession[],
+  userId?: string
 ): string {
-  const base = `당신은 HeartSync의 1:1 전담 커플·부부 심리상담 코치입니다. 15년 이상의 임상 상담 경력을 가진 따뜻하고 통찰력 있는 실제 인간 상담사처럼 대화하세요.
+  const resolvedUid = userId || resolveCurrentUserId();
+  const base = `당신은 HeartSync의 1:1 전담 커플·부부 심리상담 코치입니다. 일반적인 상담 문구("대화를 많이 하세요", "서로 이해하도록 노력하세요")만 반복해서는 절대 안 되며, 사용자의 질문을 정확히 이해하고 실제 문제 해결에 도움이 되는 구체적인 답변을 제공해야 합니다.
 
-핵심 대화 원칙 (매우 중요):
-1. **직전 맥락 및 단답형 완벽 미러링**: 사용자가 직전 질문에 대해 짧게 대답하거나 단어 하나(예: "선물", "말투", "내가 먼저 사과해", "3일 정도")로 답하면, 반드시 첫 문장에서 사용자의 그 대답을 그대로 받아치며("아, '선물'을 가장 중요한 애정 표현으로 느끼시는군요!") 맥락을 이어가세요. 절대 동문서답하거나 엉뚱한 일반론으로 넘어가지 마세요.
-2. **딱딱한 교과서/강의식 소제목 금지**: '💡 심리학적 핵심 원리', '✨ 오늘 바로 실천해볼 수 있는 맞춤 대화법', '❓ 함께 더 이야기해보고 싶어요' 같은 기계적인 보고서 소제목이나 학자 이름 나열을 반복하지 마세요. 마주 앉아 눈을 보며 대화하듯 자연스러운 문단 호흡과 따뜻한 구어체로 이야기하세요.
-3. **실전 대화 스크립트 제시**: 파트너에게 실제로 카톡이나 대면으로 건넬 수 있는 구체적인 문장은 인용구(> 💬 "...") 형태로 자연스럽게 1개 제시하세요.
-4. **적응형 티키타카 호흡**: 사용자의 발화가 짧으면 코치도 너무 길지 않게 핵심 공감 + 맞춤 통찰 + 열린 질문 1개로 자연스럽게 티키타카 대화를 이어가세요.
-5. **안전 원칙**: 항상 한국어로 답변하며, 신체적 폭력이나 심각한 학대 상황에서는 내담자의 안전 확보와 전문 기관 안내를 최우선으로 합니다.`;
+## [STEP 4] AI 코치 9대 핵심 원칙 (필수 적용)
+1. **질문의 의도를 먼저 파악한다**: 사용자가 감정 공감을 원하는지, 상대 심리 해석을 원하는지, 당장 보낼 대화문을 원하는지 먼저 정확히 짚어내세요.
+2. **사용자의 감정을 존중한다**: 첫 문단에서 사용자의 서운함, 답답함, 불안함을 판단 없이 따뜻하게 수용하세요.
+3. **사실(Fact)과 추측(Assumption)을 구분한다**: 실제로 일어난 상황(예: 연락이 늦음, 대화를 피함)과 불안으로 인한 단정(예: "날 무시한다", "사랑이 식었다")을 구분하여 먼저 상대방의 실제 상황·여유 여부를 확인하도록 안내하세요.
+4. **이전 진단 결과를 필요한 범위에서 참고한다**: 매번 점수를 기계적으로 나열하지 말고, 현재 질문과 직결된 취약 영역이나 애착 성향만 자연스럽게 연결하세요.
+5. **질문 유형(9종)에 맞는 맞춤형 답변 전략을 적용한다**: (감정적 고민 / 갈등 해결 / 의사소통 / 신뢰 문제 / 관계 회복 / 이별 고민 / 결혼 고민 / 상대방 이해 / 대화문 작성)
+6. **구체적인 대화 예시를 제시한다**: 상대방에게 바로 말하거나 카톡으로 보낼 수 있는 완성된 대화문(> 💬 '...')을 반드시 제시하세요.
+7. **사용자가 당장 실행할 수 있는 행동을 제안한다**: 추상적인 조언 대신 "우선 이번 주에 서로의 이야기를 10분씩 듣는 시간을 마련해 보세요"처럼 오늘·이번 주에 바로 실행 가능한 구체적 행동 1가지를 제안하세요.
+8. **상황이 불분명하면 추가 질문을 한다**: 사용자의 설명이 짧거나 맥락이 모호할 때는 섣불리 단정하지 말고 상황을 구체화하는 확인 질문을 건네세요.
+9. **전문적인 도움이 필요한 상황은 적절히 안내한다**: 폭력·학대·자해 위기나 정신건강의학적 진료가 필요한 경우 전문기관을 안내하세요.
+
+## 답변 품질 기준 (Few-Shot 모범 기준)
+- ❌ 나쁜 답변(일반론 반복): "서로 대화를 많이 하고 이해하도록 노력하세요."
+- ✅ 좋은 답변(구체적 해결책):
+"상대방이 내 말을 듣지 않는다고 느끼면 서운함이 커질 수 있습니다. 먼저 상대방이 대화할 여유가 없는 상황인지 확인해 보세요.
+
+다음과 같이 말해 볼 수 있습니다.
+
+> 💬 '당신이 내 이야기를 들어주지 않는다고 느낄 때 마음이 많이 서운해. 오늘 저녁에 잠시 시간을 내서 서로의 이야기를 들어줄 수 있을까?'
+
+우선 이번 주에 서로의 이야기를 10분씩 듣는 시간을 마련해 보세요."
+
+- 또한 사용자가 직전 질문에 대해 단답(예: "선물", "말투", "동문서답일때")으로 답하면 반드시 첫 문장에서 그 단어를 그대로 받아치며 맥락을 이어가고, 기계적인 소제목('💡 심리학적 핵심 원리' 등)을 반복하지 마세요.
+${SAFETY_SYSTEM_PROMPT_RULES}`;
 
   let prompt = base;
 
   if (userName) {
-    prompt += `\n\n## 내담자(사용자) 기본 정보\n- 이름/호칭: ${userName}님 (답변 시 자연스럽고 따뜻하게 이름을 불러주며 공감해주세요)`;
+    prompt += `\n\n## 내담자(사용자) 기본 정보\n- 이름/호칭: ${userName}님 (자연스럽고 따뜻하게 호칭하며 대화하세요)`;
   }
 
   if (topicExtra) {
     prompt += topicExtra;
   }
+
+  // [STEP 5] Inject personalized relationship memory & 7d/30d program status
+  prompt += buildPersonalizationPromptContext(resolvedUid, diagnosis?.scores);
 
   const validPastSessions = (pastSessions || [])
     .filter((s) => s.last_message_preview || (s.title && s.title !== "새 상담"))
@@ -247,7 +301,7 @@ function buildSystemPrompt(
     const memoryLines = validPastSessions.map(
       (s) => `- [${s.title}] 최근 대화 요약: "${s.last_message_preview || "상담 진행"}"`
     );
-    prompt += `\n\n## 이전 상담 세션 기억 (장기 기억 컨텍스트)\n사용자가 과거 상담 세션에서 나눴던 주요 고민 주제입니다. 현재 질문과 연관될 경우 자연스럽게 맥락을 이어서 상담하세요:\n${memoryLines.join("\n")}`;
+    prompt += `\n\n## 이전 상담 세션 히스토리\n${memoryLines.join("\n")}`;
   }
 
   if (!diagnosis) return prompt;
@@ -260,24 +314,12 @@ function buildSystemPrompt(
 
   const diagContext = `
 
-## 사용자 진단 데이터 (최신)
+## 사용자 진단 데이터 (필요한 범위에서만 자연스럽게 참고)
 - 총점: ${diagnosis.total_score}/250 (${getGradeLabel(diagnosis.total_score, scores.conflict)})
-- 갈등 관리: ${scores.conflict || 0}/50
-- 정서적 친밀감: ${scores.intimacy || 0}/50
-- 신뢰/애착: ${scores.trust || 0}/50
-- 가치관: ${scores.values || 0}/50
-- 신체적 만족: ${scores.physical || 0}/50
+- 영역별 점수: 갈등 관리 ${scores.conflict || 0}/50, 정서적 친밀감 ${scores.intimacy || 0}/50, 신뢰/애착 ${scores.trust || 0}/50, 가치관 ${scores.values || 0}/50, 신체적 만족 ${scores.physical || 0}/50
 - 가장 강한 영역: ${categoryInfo[strongest[0]]?.label || strongest[0]} (${strongest[1]}/50)
 - 가장 약한 영역: ${categoryInfo[weakest[0]]?.label || weakest[0]} (${weakest[1]}/50)
-${itemAnalysis.promptSection}
-${diagnosis.ai_report ? `\n## AI 분석 리포트 요약 (참고용)\n${diagnosis.ai_report.slice(0, 1500)}` : ""}
-
-## 상담 지침
-- 사용자의 진단 점수와 50문항 개별 응답 데이터(애착 세부 유형, 가트맨 독소 활성 여부, 핵심 취약 문항)를 참고하여 맞춤형 조언을 제공하세요
-- 약한 영역(${categoryInfo[weakest[0]]?.label})과 사용자가 1~2점을 준 실제 취약 문항의 고민 맥락을 우선적으로 다루세요
-- 강한 영역(${categoryInfo[strongest[0]]?.label})과 강점 문항은 긍정적인 관계 자원으로 인정해주세요
-- 사용자가 특정 영역에 대해 물으면 해당 영역의 세부 문항 응답과 애착 역동(${itemAnalysis.attachment.primaryType})을 기반으로 구체적으로 답변하세요
-- 진단 데이터를 자연스럽게 대화에 녹여내되, 점수를 기계적으로 나열하지 마세요`;
+${itemAnalysis.promptSection}`;
 
   return prompt + diagContext;
 }
@@ -322,15 +364,31 @@ export default function ChatbotPage() {
   const [ratingComment, setRatingComment] = useState("");
   const [hasRated, setHasRated] = useState(false);
   const [isSubmittingRating, setIsSubmittingRating] = useState(false);
+  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
+  const [memoryConsent, setMemoryConsentState] = useState<boolean>(() =>
+    getMemoryConsent(resolveCurrentUserId())
+  );
+  const [crisisAlert, setCrisisAlert] = useState<boolean>(false);
+  const [programCompletionRate, setProgramCompletionRate] = useState<number>(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const systemPromptRef = useRef<string>("");
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const userNameRef = useRef<string>("");
+  const userIdRef = useRef<string>(resolveCurrentUserId());
+
+  const refreshProgramSummary = useCallback((uid = userIdRef.current, scores?: Record<string, number> | null) => {
+    const plan = loadOrCreateProgramPlan(uid, scores);
+    const summary = getProgramProgressSummary(plan);
+    setProgramCompletionRate(summary.completionRate);
+  }, []);
 
   useEffect(() => {
     loadInitialData();
-  }, []);
+    const onProgramUpdated = () => refreshProgramSummary(userIdRef.current, latestDiagnosis?.scores);
+    window.addEventListener("heartsync:program-updated", onProgramUpdated);
+    return () => window.removeEventListener("heartsync:program-updated", onProgramUpdated);
+  }, [refreshProgramSummary]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -363,7 +421,12 @@ export default function ChatbotPage() {
         currentUser?.name ||
         currentUser?.nickname ||
         (currentUser?.email ? String(currentUser.email).split("@")[0] : "");
+      const resolvedUid = String(
+        currentUser?.id || currentUser?.email || resolveCurrentUserId() || "guest"
+      );
       userNameRef.current = resolvedName;
+      userIdRef.current = resolvedUid;
+      setMemoryConsentState(getMemoryConsent(resolvedUid));
 
       if (!currentUser) {
         setIsLoggedIn(false);
@@ -437,7 +500,14 @@ export default function ChatbotPage() {
       }
 
       setLatestDiagnosis(diag);
-      systemPromptRef.current = buildSystemPrompt(diag, undefined, resolvedName, loadedSessions);
+      refreshProgramSummary(userIdRef.current, diag?.scores);
+      systemPromptRef.current = buildSystemPrompt(
+        diag,
+        undefined,
+        resolvedName,
+        loadedSessions,
+        userIdRef.current
+      );
 
       if (sessionIdParam) {
         await loadSession(parseInt(sessionIdParam, 10), diag, loadedSessions);
@@ -533,7 +603,9 @@ export default function ChatbotPage() {
 
     let localItems: ChatSession[] = [];
     try {
-      const raw = localStorage.getItem("heartsync_local_chat_sessions");
+      const raw =
+        localStorage.getItem(getLocalSessionsKey(userIdRef.current)) ||
+        (userIdRef.current === "guest" ? localStorage.getItem("heartsync_local_chat_sessions") : null);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed)) localItems = parsed;
@@ -566,7 +638,9 @@ export default function ChatbotPage() {
 
       if (items.length === 0) {
         try {
-          const localRaw = localStorage.getItem(`heartsync_local_chat_messages_${sessionId}`);
+          const localRaw =
+            localStorage.getItem(getLocalMessagesKey(userIdRef.current, sessionId)) ||
+            localStorage.getItem(`heartsync_local_chat_messages_${sessionId}`);
           if (localRaw) {
             const parsed = JSON.parse(localRaw);
             if (Array.isArray(parsed)) items = parsed;
@@ -640,7 +714,8 @@ export default function ChatbotPage() {
 
     const fallbackId = Date.now();
     try {
-      const localRaw = localStorage.getItem("heartsync_local_chat_sessions");
+      const sessKey = getLocalSessionsKey(userIdRef.current);
+      const localRaw = localStorage.getItem(sessKey);
       const localList: ChatSession[] = localRaw ? JSON.parse(localRaw) : [];
       const newSession: ChatSession = {
         id: fallbackId,
@@ -650,7 +725,7 @@ export default function ChatbotPage() {
         last_message_preview: "",
         updated_at: now,
       };
-      localStorage.setItem("heartsync_local_chat_sessions", JSON.stringify([newSession, ...localList]));
+      localStorage.setItem(sessKey, JSON.stringify([newSession, ...localList]));
       setSessions((prev) => [newSession, ...prev]);
     } catch {}
     setCurrentSessionId(fallbackId);
@@ -662,11 +737,11 @@ export default function ChatbotPage() {
     const now = new Date().toISOString().slice(0, 19).replace("T", " ");
     const preview = content.length > 50 ? content.slice(0, 50) + "..." : content;
 
-    // 1. Immediately persist to localStorage so no message is ever lost
+    // 1. Immediately persist to user-scoped localStorage so no message is ever lost or mixed across users
     let updatedCount = 1;
     let updatedTitle: string | undefined;
     try {
-      const msgKey = `heartsync_local_chat_messages_${sessionId}`;
+      const msgKey = getLocalMessagesKey(userIdRef.current, sessionId);
       const existingMsgsRaw = localStorage.getItem(msgKey);
       const existingMsgs: any[] = existingMsgsRaw ? JSON.parse(existingMsgsRaw) : [];
       const nextMsgs = [
@@ -684,7 +759,8 @@ export default function ChatbotPage() {
           : content;
       }
 
-      const sessRaw = localStorage.getItem("heartsync_local_chat_sessions");
+      const sessKey = getLocalSessionsKey(userIdRef.current);
+      const sessRaw = localStorage.getItem(sessKey);
       const sessList: ChatSession[] = sessRaw ? JSON.parse(sessRaw) : [];
       const idx = sessList.findIndex((s) => s.id === sessionId);
       if (idx >= 0) {
@@ -704,7 +780,7 @@ export default function ChatbotPage() {
           updated_at: now,
         });
       }
-      localStorage.setItem("heartsync_local_chat_sessions", JSON.stringify(sessList));
+      localStorage.setItem(sessKey, JSON.stringify(sessList));
       setSessions((prev) => {
         const exists = prev.some((s) => s.id === sessionId);
         if (exists) {
@@ -788,11 +864,47 @@ export default function ChatbotPage() {
     let fullContent = "";
     const finalSessionId = sessionId;
 
+    // [STEP 6] Highest-priority safety & crisis detection
+    const crisisResult = detectSafetyCrisis(msgText);
+    if (crisisResult.isCrisis) {
+      setCrisisAlert(true);
+      const safeReply = generateCrisisSafeResponse(crisisResult, userNameRef.current);
+      setIsStreaming(false);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === assistantId ? { ...m, content: safeReply } : m))
+      );
+      if (finalSessionId) {
+        saveMessage(finalSessionId, "assistant", safeReply);
+      }
+      return;
+    }
+
+    // [STEP 4] Classify question intent (9 types) & build turn-specific system prompt
+    const intentInfo = classifyQuestionIntent(msgText, selectedTopic?.id);
+    const turnSystemPrompt = `${systemPromptRef.current}\n\n## [현재 질문 의도 분석]\n- ${intentInfo.strategyDirective}`;
+
+    const recordTurnMemory = (replyContent: string) => {
+      updateCoachMemoryFromTurn({
+        userId: userIdRef.current,
+        userMessage: msgText,
+        assistantReply: replyContent,
+        intentType: intentInfo.label,
+      });
+      systemPromptRef.current = buildSystemPrompt(
+        latestDiagnosis,
+        selectedTopic?.systemPromptExtra,
+        userNameRef.current,
+        sessions,
+        userIdRef.current
+      );
+    };
+
     const fallbackCounseling = generateContextualCounselingReply({
       userMessage: msgText,
       history: chatHistory,
       diagnosis: latestDiagnosis,
       topicId: selectedTopic?.id,
+      userName: userNameRef.current,
     });
 
     const isLegacyStaticFallback = (text: string) =>
@@ -807,7 +919,7 @@ export default function ChatbotPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [
-            { role: "system", content: systemPromptRef.current },
+            { role: "system", content: turnSystemPrompt },
             ...chatHistory,
             { role: "user", content: msgText },
           ],
@@ -821,6 +933,7 @@ export default function ChatbotPage() {
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: replyText } : m))
           );
+          recordTurnMemory(replyText);
           if (finalSessionId) {
             saveMessage(finalSessionId, "assistant", replyText);
           }
@@ -834,7 +947,7 @@ export default function ChatbotPage() {
     try {
       await client.ai.gentxt({
         messages: [
-          { role: "system", content: systemPromptRef.current },
+          { role: "system", content: turnSystemPrompt },
           ...chatHistory,
           { role: "user", content: msgText },
         ],
@@ -861,6 +974,7 @@ export default function ChatbotPage() {
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
           );
+          recordTurnMemory(finalContent);
           if (finalSessionId) {
             saveMessage(finalSessionId, "assistant", finalContent);
           }
@@ -873,6 +987,7 @@ export default function ChatbotPage() {
           setMessages((prev) =>
             prev.map((m) => (m.id === assistantId ? { ...m, content: finalContent } : m))
           );
+          recordTurnMemory(finalContent);
           if (finalSessionId) {
             saveMessage(finalSessionId, "assistant", finalContent);
           }
@@ -883,6 +998,7 @@ export default function ChatbotPage() {
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, content: fallbackCounseling } : m))
       );
+      recordTurnMemory(fallbackCounseling);
       if (finalSessionId) {
         saveMessage(finalSessionId, "assistant", fallbackCounseling);
       }
@@ -1193,6 +1309,130 @@ export default function ChatbotPage() {
       {/* Messages */}
       <main className="flex-1 pt-16 pb-24 px-4 max-w-lg mx-auto w-full overflow-y-auto">
         <div className="space-y-4 py-4">
+          {/* STEP 6: Emergency Safety Banner (shown when crisis/violence/self-harm detected) */}
+          {crisisAlert && (
+            <div className="bg-red-50 border-2 border-red-300 rounded-2xl p-4 space-y-2 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-red-700">
+                  <ShieldAlert className="w-4 h-4 text-red-600" />
+                  긴급 안전 보호 안내 (내담자 안전 최우선)
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setCrisisAlert(false)}
+                  className="text-[10px] text-red-400 hover:text-red-600"
+                >
+                  닫기
+                </button>
+              </div>
+              <p className="text-[11px] text-red-800 leading-relaxed">
+                폭력·학대·스토킹·협박·자해 위기 상황에서는 화해나 대화보다 <strong>안전한 분리와 전문기관 도움</strong>이 최우선입니다.
+              </p>
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                <a
+                  href="tel:112"
+                  className="px-2.5 py-1 rounded-full bg-red-600 text-white text-[11px] font-bold"
+                >
+                  🚨 위급신고 112
+                </a>
+                <a
+                  href="tel:1366"
+                  className="px-2.5 py-1 rounded-full bg-white border border-red-300 text-red-700 text-[11px] font-bold"
+                >
+                  ☎️ 여성긴급전화 1366
+                </a>
+                <a
+                  href="tel:109"
+                  className="px-2.5 py-1 rounded-full bg-white border border-red-300 text-red-700 text-[11px] font-bold"
+                >
+                  ☎️ 자살예방상담 109
+                </a>
+                <a
+                  href="tel:15770199"
+                  className="px-2.5 py-1 rounded-full bg-white border border-red-300 text-red-700 text-[11px] font-bold"
+                >
+                  ☎️ 정신건강상담 1577-0199
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* STEP 5 & STEP 7 Control Bar: 7d/30d Improvement Plan & Memory Consent */}
+          <div className="flex items-center justify-between gap-2 bg-white rounded-2xl px-3.5 py-2.5 border border-pink-100 shadow-xs">
+            <button
+              type="button"
+              onClick={() => setIsProgramModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-pink-500 to-rose-500 text-white text-[11px] font-extrabold shadow-xs hover:shadow-md hover:scale-[1.01] transition-all"
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>7일·30일 개선 플랜</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-white/20 text-[10px]">
+                {programCompletionRate}%
+              </span>
+            </button>
+
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !memoryConsent;
+                  setMemoryConsent(userIdRef.current, next);
+                  setMemoryConsentState(next);
+                  systemPromptRef.current = buildSystemPrompt(
+                    latestDiagnosis,
+                    selectedTopic?.systemPromptExtra,
+                    userNameRef.current,
+                    sessions,
+                    userIdRef.current
+                  );
+                  toast.info(
+                    next
+                      ? "맞춤 기억(개인화)이 활성화되었습니다. 이전 관계 맥락을 기억합니다."
+                      : "맞춤 기억이 비활성화되고 저장된 요약 기억이 삭제되었습니다."
+                  );
+                }}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border transition-all ${
+                  memoryConsent
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-gray-100 text-gray-500 border-gray-200"
+                }`}
+                title="사용자 동의 기반 최소 관계 맥락 기억 ON/OFF"
+              >
+                {memoryConsent ? (
+                  <>
+                    <Lock className="w-3 h-3" />
+                    맞춤기억 ON
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="w-3 h-3" />
+                    맞춤기억 OFF
+                  </>
+                )}
+              </button>
+              {memoryConsent && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearCoachMemory(userIdRef.current);
+                    systemPromptRef.current = buildSystemPrompt(
+                      latestDiagnosis,
+                      selectedTopic?.systemPromptExtra,
+                      userNameRef.current,
+                      sessions,
+                      userIdRef.current
+                    );
+                    toast.success("저장된 관계 요약 기억이 초기화되었습니다.");
+                  }}
+                  className="text-[10px] text-gray-400 hover:text-red-500 underline"
+                  title="저장된 대화 요약 초기화"
+                >
+                  초기화
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Diagnosis Context Card */}
           {latestDiagnosis && showDiagCard && (
             <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-3.5 border border-purple-100 relative">
@@ -1478,6 +1718,19 @@ export default function ChatbotPage() {
           </div>
         </>
       )}
+
+      {/* STEP 7: Personalized 7-Day & 30-Day Improvement Program Modal */}
+      <ImprovementProgramModal
+        isOpen={isProgramModalOpen}
+        onClose={() => {
+          setIsProgramModalOpen(false);
+          refreshProgramSummary(userIdRef.current, latestDiagnosis?.scores);
+        }}
+        scores={latestDiagnosis?.scores}
+        onAskCoachAboutStep={(promptText) => {
+          handleSend(promptText);
+        }}
+      />
 
       {/* Input */}
       <div className="fixed bottom-0 left-0 right-0 bg-card/95 backdrop-blur-lg border-t border-border p-3">

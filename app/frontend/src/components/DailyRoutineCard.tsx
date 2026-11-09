@@ -9,9 +9,11 @@ import {
   Share2,
   Heart,
   ChevronRight,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import AlimtalkRoutineModal from "./AlimtalkRoutineModal";
+import ImprovementProgramModal from "./ImprovementProgramModal";
 
 interface DailyRoutineCardProps {
   partnerName?: string;
@@ -53,6 +55,7 @@ export default function DailyRoutineCard({
   const [qIndex, setQIndex] = useState(0);
   const [copied, setCopied] = useState(false);
   const [isAlimtalkModalOpen, setIsAlimtalkModalOpen] = useState(false);
+  const [isProgramModalOpen, setIsProgramModalOpen] = useState(false);
 
   const currentQ = SAMPLE_QUESTIONS[qIndex];
 
@@ -147,12 +150,29 @@ export default function DailyRoutineCard({
         </button>
       </div>
 
+      {/* 7-Day & 30-Day Improvement Program Button */}
+      <button
+        type="button"
+        onClick={() => setIsProgramModalOpen(true)}
+        className="w-full py-2.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-extrabold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+      >
+        <Calendar className="w-3.5 h-3.5" />
+        <span>맞춤형 7일 · 30일 관계 개선 계획표 열기</span>
+        <ChevronRight className="w-3.5 h-3.5" />
+      </button>
+
       {/* Alimtalk Routine Modal */}
       <AlimtalkRoutineModal
         isOpen={isAlimtalkModalOpen}
         onClose={() => setIsAlimtalkModalOpen(false)}
         defaultPartnerName={partnerName}
         latestScore={latestScore}
+      />
+
+      {/* 7-Day & 30-Day Program Modal */}
+      <ImprovementProgramModal
+        isOpen={isProgramModalOpen}
+        onClose={() => setIsProgramModalOpen(false)}
       />
     </div>
   );
