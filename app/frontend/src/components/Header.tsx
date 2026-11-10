@@ -95,6 +95,15 @@ export default function Header() {
           </button>
 
           <div className="flex items-center gap-2">
+            {location.pathname !== "/promo" && (
+              <button
+                onClick={() => navigate("/promo")}
+                className="px-2.5 py-1.5 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-extrabold border border-rose-200/70 transition-colors"
+                title="프로모션 캠페인 페이지 보기"
+              >
+                ✨ 캠페인
+              </button>
+            )}
             {!loading && (
               <>
                 {user ? (

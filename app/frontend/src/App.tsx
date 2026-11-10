@@ -19,6 +19,7 @@ import GiftTicketPage from './pages/GiftTicketPage';
 import NotFound from './pages/NotFound';
 import ServiceDetailPage from './pages/ServiceDetailPage';
 import AboutPage from './pages/AboutPage';
+import PromoPage from './pages/PromoPage';
 import AdminLayout from './pages/admin/AdminLayout';
 import AdminDashboardPage from './pages/admin/AdminDashboardPage';
 import AdminUsersPage from './pages/admin/AdminUsersPage';
@@ -56,6 +57,8 @@ const App = () => (
           <Route path="/gift/:ticketId" element={<GiftTicketPage />} />
           <Route path="/service-detail" element={<ServiceDetailPage />} />
           <Route path="/about" element={<AboutPage />} />
+          <Route path="/promo" element={<PromoPage />} />
+          <Route path="/campaign" element={<PromoPage />} />
           <Route path="/terms" element={<TermsPage />} />
           <Route path="/privacy" element={<PrivacyPage />} />
           {/* Admin Routes */}
