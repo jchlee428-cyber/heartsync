@@ -296,7 +296,45 @@ export default function LoginModal({
             </div>
           </div>
 
-          {/* Privacy & Terms */}
+          {/* Privacy & Terms Checkboxes (PG 및 휴대폰결제 심사 필수 요건) */}
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200/80 space-y-1.5 text-left">
+            <label className="flex items-center justify-between gap-2 cursor-pointer">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="w-3.5 h-3.5 rounded accent-pink-500"
+                />
+                <span>[필수] 서비스 이용약관 동의</span>
+              </span>
+              <a
+                href="/terms"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] font-bold text-pink-600 underline"
+              >
+                전문보기
+              </a>
+            </label>
+            <label className="flex items-center justify-between gap-2 cursor-pointer">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-gray-700">
+                <input
+                  type="checkbox"
+                  defaultChecked
+                  className="w-3.5 h-3.5 rounded accent-pink-500"
+                />
+                <span>[필수] 개인정보처리방침 동의</span>
+              </span>
+              <a
+                href="/privacy"
+                target="_blank"
+                rel="noreferrer"
+                className="text-[10px] font-bold text-pink-600 underline"
+              >
+                전문보기
+              </a>
+            </label>
+          </div>
           <p className="text-[10px] text-gray-400 text-center leading-relaxed">
             로그인 시 HeartSync의{" "}
             <a href="/terms" className="underline hover:text-gray-600">

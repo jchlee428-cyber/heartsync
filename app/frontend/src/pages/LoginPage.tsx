@@ -312,6 +312,62 @@ export default function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {/* 회원가입 및 로그인 필수 약관 동의 (PG 및 휴대폰결제 심사 필수 요건) */}
+            <div className="bg-gray-50 rounded-2xl p-3.5 border border-gray-200/80 space-y-2 text-xs text-gray-700">
+              <p className="text-[11px] font-extrabold text-gray-800">
+                📋 회원가입 및 서비스 이용 필수 약관 동의
+              </p>
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="flex items-center gap-2 text-[11px] font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    required
+                    className="w-3.5 h-3.5 rounded accent-pink-500"
+                  />
+                  <span>[필수] 서비스 이용약관 동의</span>
+                </span>
+                <a
+                  href="/terms"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-bold text-pink-600 underline hover:text-pink-700"
+                >
+                  전문보기
+                </a>
+              </label>
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="flex items-center gap-2 text-[11px] font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    required
+                    className="w-3.5 h-3.5 rounded accent-pink-500"
+                  />
+                  <span>[필수] 개인정보 수집 및 이용방침 동의</span>
+                </span>
+                <a
+                  href="/privacy"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-[10px] font-bold text-pink-600 underline hover:text-pink-700"
+                >
+                  전문보기
+                </a>
+              </label>
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="flex items-center gap-2 text-[11px] font-medium text-gray-700">
+                  <input
+                    type="checkbox"
+                    defaultChecked
+                    required
+                    className="w-3.5 h-3.5 rounded accent-pink-500"
+                  />
+                  <span>[필수] 만 14세 이상 이용자 확인</span>
+                </span>
+              </label>
+            </div>
           </div>
         </div>
 

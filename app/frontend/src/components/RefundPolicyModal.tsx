@@ -53,6 +53,7 @@ export default function RefundPolicyModal({ isOpen, onClose }: RefundPolicyModal
               <li>고객센터(1599-9573) 또는 이메일(vikin@hanmail.net)로 환불 요청 접수</li>
               <li>접수 후 즉시 결제 취소 승인 (영업일 기준 3~5일 이내 카드사 취소 반영)</li>
               <li>간편결제(카카오페이/토스페이/네이버페이)는 당일 즉시 취소 승인</li>
+              <li><strong>휴대폰 결제 취소 안내:</strong> 휴대폰 결제는 당월 취소 시 통신사 과금이 즉시 취소(익월 미청구)되며, 결제월이 지난 익월 취소 시에는 상점 고객센터를 통해 구매자 본인 명의 계좌로 직접 환불해 드립니다.</li>
             </ul>
           </div>
 

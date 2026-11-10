@@ -187,7 +187,7 @@ export default function PricingPage() {
       if (cached) {
         try {
           return JSON.parse(cached);
-        } catch {}
+        } catch { }
       }
       return { name: "회원", role: "user" };
     } catch {
@@ -362,9 +362,8 @@ export default function PricingPage() {
       const customerKey =
         sanitizedCustomerKey.length >= 2 ? sanitizedCustomerKey : `cust_${sanitizedCustomerKey}`;
 
-      const successUrl = `${currentHost}/payment-success?plan_type=${encodeURIComponent(planId)}${
-        diagnosisId ? `&diagnosis_id=${encodeURIComponent(diagnosisId)}` : ""
-      }`;
+      const successUrl = `${currentHost}/payment-success?plan_type=${encodeURIComponent(planId)}${diagnosisId ? `&diagnosis_id=${encodeURIComponent(diagnosisId)}` : ""
+        }`;
       const failUrl = `${currentHost}/pricing?payment=failed`;
 
       // If a live_ck_ individual API key is configured, invoke direct payment window;
@@ -583,11 +582,10 @@ export default function PricingPage() {
         <div className="flex rounded-2xl bg-pink-100/70 p-1.5 mb-6 border border-pink-200/80 shadow-xs">
           <button
             onClick={() => setActiveTab("self")}
-            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === "self"
+            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "self"
                 ? "bg-white text-gray-900 shadow-sm"
                 : "text-gray-600 hover:text-gray-900"
-            }`}
+              }`}
           >
             <Zap className="w-4 h-4 text-pink-500" />
             <span>내 진단 결제하기</span>
@@ -597,11 +595,10 @@ export default function PricingPage() {
               setActiveTab("gift");
               setIsGiftModalOpen(true);
             }}
-            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${
-              activeTab === "gift"
+            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "gift"
                 ? "bg-white text-pink-600 shadow-sm"
                 : "text-pink-600 hover:text-pink-700"
-            }`}
+              }`}
           >
             <Gift className="w-4 h-4 text-pink-500 animate-bounce" />
             <span>🎁 연인에게 선물하기 (100일/1주년)</span>
@@ -665,21 +662,19 @@ export default function PricingPage() {
             return (
               <div
                 key={plan.id}
-                className={`relative bg-white rounded-3xl p-6 shadow-md border-2 transition-all duration-300 ${
-                  plan.popular
+                className={`relative bg-white rounded-3xl p-6 shadow-md border-2 transition-all duration-300 ${plan.popular
                     ? "border-pink-400 shadow-xl shadow-pink-100 ring-2 ring-pink-400/20"
                     : "border-gray-100 hover:border-pink-200 hover:shadow-lg"
-                }`}
+                  }`}
               >
                 {/* 인기 뱃지 / 프리미엄 뱃지 */}
                 {plan.badge && (
                   <div className="absolute -top-3.5 right-5">
                     <span
-                      className={`inline-flex items-center gap-1.5 px-3.5 py-1 text-xs font-extrabold rounded-full shadow-sm ${
-                        plan.popular
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-1 text-xs font-extrabold rounded-full shadow-sm ${plan.popular
                           ? "bg-gradient-to-r from-pink-500 via-rose-500 to-red-500 text-white"
                           : "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
-                      }`}
+                        }`}
                     >
                       <Star className="w-3 h-3 fill-current" />
                       {plan.badge}
@@ -811,11 +806,10 @@ export default function PricingPage() {
                       <button
                         onClick={() => handlePurchase(plan.id)}
                         disabled={loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)}
-                        className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${
-                          loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
+                        className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
                             ? "opacity-60 cursor-wait"
                             : "hover:shadow-lg hover:scale-[1.01]"
-                        }`}
+                          }`}
                       >
                         {loading === plan.id ? (
                           <span className="flex items-center justify-center gap-2">
@@ -876,11 +870,10 @@ export default function PricingPage() {
             </div>
             <button
               onClick={() => setPaymentProvider((prev) => (prev === "stripe" ? "toss" : "stripe"))}
-              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${
-                paymentProvider === "stripe"
+              className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${paymentProvider === "stripe"
                   ? "bg-purple-600 text-white border-purple-600"
                   : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
-              }`}
+                }`}
             >
               {paymentProvider === "stripe" ? "국내 결제로 복귀" : "해외 결제(USD) 전환"}
             </button>
@@ -920,7 +913,10 @@ export default function PricingPage() {
                 <strong>3. 선물하기(모바일 러브레터 티켓) 유효기간 및 환불 규정:</strong> 구매자가 결제한 선물 티켓의 수령인 등록 유효기간은 <strong>결제일로부터 30일</strong>입니다(최대 서비스 제공기간은 등록 후 이용기간을 포함하여 결제일로부터 60일을 초과하지 않습니다). 수령인이 티켓을 등록하기 전 단계에서는 구매자가 언제든지 <strong>100% 전액 환불</strong>을 요청할 수 있으며, 유효기간(30일) 내 미등록 시에도 100% 전액 환불됩니다. 선물 티켓은 지정된 수령인만 등록 가능하며 <strong>수령인 외 제3자에게 양도 또는 재판매할 수 없습니다.</strong>
               </p>
               <p>
-                <strong>4. 시스템 오류 및 결제 분쟁:</strong> 결제 후 시스템 오류로 인해 리포트가 정상 생성되지 않은 경우 무조건 전액 환불 또는 이용권이 즉시 재지급됩니다.
+                <strong>4. 휴대폰 결제 취소 및 환불 규정:</strong> 휴대폰 결제는 통신사 월단위 청구 정책에 따라 결제 당월 내 취소 시 통신사 결제 자체가 즉시 취소되어 익월 요금에 청구되지 않습니다. 결제월이 지난 익월 이후 환불 사유 발생 시에는 고객센터(1599-9573)를 통해 구매자 본인 명의 계좌로 현금 환불 처리해 드립니다.
+              </p>
+              <p>
+                <strong>5. 시스템 오류 및 결제 분쟁:</strong> 결제 후 시스템 오류로 인해 리포트가 정상 생성되지 않은 경우 무조건 전액 환불 또는 이용권이 즉시 재지급됩니다.
               </p>
               <p className="text-gray-500 pt-1">
                 * 고객센터 문의: support@heartsync.co.kr | 토스페이먼츠(PG) 에스크로 안전 거래 보장

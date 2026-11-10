@@ -1528,6 +1528,35 @@ export default function MyPage() {
             <Heart className="w-4 h-4" />
             새 진단 시작하기
           </button>
+
+          {/* 회원 탈퇴 경로 (휴대폰 결제 및 통신사 PG 심사 필수 구축 요건) */}
+          {user && (
+            <div className="pt-4 border-t border-gray-200/70 flex items-center justify-between px-1">
+              <span className="text-[11px] text-gray-400">
+                계정 및 개인정보 영구 삭제가 필요하신가요?
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "정말로 회원 탈퇴를 진행하시겠습니까?\n탈퇴 즉시 계정 정보 및 저장된 진단·상담 데이터가 모두 파기되며 복구할 수 없습니다."
+                    )
+                  ) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    localStorage.removeItem("heartsync_active_plan");
+                    localStorage.setItem("isLougOutManual", "true");
+                    toast.success("회원 탈퇴 및 개인정보 파기가 정상적으로 완료되었습니다.");
+                    navigate("/");
+                  }
+                }}
+                className="text-[11px] font-semibold text-gray-400 hover:text-red-500 underline transition-colors"
+              >
+                회원 탈퇴하기
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer for Legal & Business Compliance */}
