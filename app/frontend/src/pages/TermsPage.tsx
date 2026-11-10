@@ -120,11 +120,18 @@ export default function TermsPage() {
                 </ul>
               </div>
               <div>
-                <p className="font-semibold text-gray-800 mb-1">4. 구독 취소</p>
+                <p className="font-semibold text-gray-800 mb-1">4. 단건 패스 이용기간 안내</p>
                 <ul className="list-disc list-inside space-y-1 pl-2">
-                  <li>구독 취소는 다음 결제일 이전에 언제든지 가능합니다.</li>
-                  <li>취소 후에도 현재 결제 기간이 만료될 때까지 서비스를 이용할 수 있습니다.</li>
-                  <li>자동 갱신을 원하지 않는 경우, 마이페이지에서 구독을 취소해주세요.</li>
+                  <li>모든 유료 상품은 정기 자동결제가 아닌 단건 결제 상품이며, 최대 이용기간은 30일(30일 올케어 패스 기준)입니다.</li>
+                  <li>이용기간 만료 후 자동 결제되지 않으며, 서비스 개시 전 7일 이내 100% 전액 환불이 가능합니다.</li>
+                </ul>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-800 mb-1">5. 선물하기 티켓(모바일 러브레터) 유효기간 및 환불·양도 규정</p>
+                <ul className="list-disc list-inside space-y-1 pl-2">
+                  <li><strong>티켓 등록 유효기간:</strong> 구매자가 결제한 선물 티켓을 수령인이 등록할 수 있는 유효기간은 <strong>결제일로부터 30일</strong>입니다(수령인 등록 후 상품별 이용기간 최대 30일을 포함하여 총 서비스 제공기간은 결제일로부터 60일을 초과하지 않습니다).</li>
+                  <li><strong>수령인 등록 전 구매자 환불:</strong> 수령인이 티켓을 등록하기 전 단계에서는 <strong>구매자가 언제든지 100% 전액 결제 취소 및 환불을 요청</strong>할 수 있으며, 유효기간(결제일로부터 30일) 내 미등록 시에도 구매자에게 100% 전액 환불됩니다.</li>
+                  <li><strong>제3자 양도 불가:</strong> 선물 티켓은 구매자가 지정한 수령인 본인만 등록 및 이용 가능하며, <strong>수령인 외 제3자에게 양도, 매매 또는 재판매할 수 없습니다.</strong></li>
                 </ul>
               </div>
             </div>

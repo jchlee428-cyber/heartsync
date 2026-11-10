@@ -146,7 +146,7 @@ export default function PricingPage() {
   const [isTestMode, setIsTestMode] = useState(true);
   const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>("toss");
   const [stripeConfigured, setStripeConfigured] = useState(false);
-  const [showRefundPolicy, setShowRefundPolicy] = useState(false);
+  const [showRefundPolicy, setShowRefundPolicy] = useState(true);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [giftInitialPlan, setGiftInitialPlan] = useState<string>("monthly_subscription");
@@ -858,6 +858,9 @@ export default function PricingPage() {
                     <Gift className="w-4 h-4 text-pink-500" />
                     <span>연인에게 이 플랜 선물하기 (모바일 러브레터 티켓 발송)</span>
                   </button>
+                  <p className="mt-1.5 text-[10px] text-gray-400 text-center">
+                    * 선물 티켓 등록 유효기간: 결제일로부터 30일 (미등록 시 100% 환불 / 제3자 양도 불가)
+                  </p>
                 </div>
               </div>
             );
@@ -914,7 +917,10 @@ export default function PricingPage() {
                 <strong>2. 서비스 개시 후 (AI 분석 리포트 생성 및 열람 완료):</strong> 전자상거래 등에서의 소비자보호에 관한 법률 제17조 제2항(디지털 콘텐츠의 제공이 개시된 경우)에 따라, 맞춤 AI 심리 분석 리포트가 생성된 이후에는 서비스의 즉각적 소비 특성상 단순 변심에 의한 청약철회가 제한됩니다.
               </p>
               <p>
-                <strong>3. 시스템 오류 및 결제 분쟁:</strong> 결제 후 시스템 오류로 인해 리포트가 정상 생성되지 않은 경우 무조건 전액 환불 또는 이용권이 즉시 재지급됩니다.
+                <strong>3. 선물하기(모바일 러브레터 티켓) 유효기간 및 환불 규정:</strong> 구매자가 결제한 선물 티켓의 수령인 등록 유효기간은 <strong>결제일로부터 30일</strong>입니다(최대 서비스 제공기간은 등록 후 이용기간을 포함하여 결제일로부터 60일을 초과하지 않습니다). 수령인이 티켓을 등록하기 전 단계에서는 구매자가 언제든지 <strong>100% 전액 환불</strong>을 요청할 수 있으며, 유효기간(30일) 내 미등록 시에도 100% 전액 환불됩니다. 선물 티켓은 지정된 수령인만 등록 가능하며 <strong>수령인 외 제3자에게 양도 또는 재판매할 수 없습니다.</strong>
+              </p>
+              <p>
+                <strong>4. 시스템 오류 및 결제 분쟁:</strong> 결제 후 시스템 오류로 인해 리포트가 정상 생성되지 않은 경우 무조건 전액 환불 또는 이용권이 즉시 재지급됩니다.
               </p>
               <p className="text-gray-500 pt-1">
                 * 고객센터 문의: support@heartsync.co.kr | 토스페이먼츠(PG) 에스크로 안전 거래 보장

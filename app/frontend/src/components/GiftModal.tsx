@@ -265,6 +265,17 @@ export default function GiftModal({
             <p className="text-[11px] text-gray-500">
               From. {senderName || "나"} | {currentOption.name}
             </p>
+            <p className="text-[10px] text-pink-700 font-semibold mt-1.5 pt-1.5 border-t border-pink-200/60">
+              📅 티켓 등록 유효기간: 결제일로부터 30일 이내 (수령인 등록 전 구매자 100% 환불 가능 / 제3자 양도 불가)
+            </p>
+          </div>
+
+          {/* Gift Ticket Policy Notice Box */}
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-[10.5px] text-gray-600 space-y-1 leading-relaxed">
+            <p className="font-bold text-gray-800">📌 선물하기 티켓 유효기간 및 환불·양도 규정</p>
+            <p>• <strong>등록 유효기간:</strong> 결제일로부터 <strong>30일 이내</strong> 수령인 등록 필수 (등록 후 상품별 이용기간 최대 30일 적용, 총 서비스 제공기간 60일 이내)</p>
+            <p>• <strong>구매자 환불:</strong> 수령인이 티켓을 등록하기 전 단계에서는 구매자가 언제든 <strong>100% 전액 결제 취소·환불</strong>을 요청할 수 있습니다(유효기간 만료 미등록 시 100% 환불).</p>
+            <p>• <strong>양도 제한:</strong> 지정된 수령인만 등록 가능하며, <strong>수령인 외 제3자에게 양도·매매·재판매가 불가</strong>합니다.</p>
           </div>
 
           {/* Payment CTA Button */}

@@ -85,6 +85,19 @@ export default function RefundPolicyModal({ isOpen, onClose }: RefundPolicyModal
             </ul>
           </div>
 
+          {/* Section 5: Gift Ticket Validity & Refund Policy */}
+          <div className="space-y-1.5 bg-rose-50/50 rounded-2xl p-3.5 border border-rose-100">
+            <h5 className="font-bold text-gray-900 text-xs flex items-center gap-1.5">
+              <FileText className="w-3.5 h-3.5 text-rose-600" />
+              5. 선물하기 티켓(모바일 러브레터) 유효기간 및 환불·양도 규정
+            </h5>
+            <ul className="space-y-1 text-[11px] text-gray-600 pl-4 list-disc">
+              <li><strong>등록 유효기간:</strong> 구매자가 결제한 선물 티켓을 수령인이 등록할 수 있는 유효기간은 <strong>결제일로부터 30일</strong>입니다(등록 후 이용기간 최대 30일을 포함하여 총 서비스 제공기간은 결제일로부터 60일을 초과하지 않습니다).</li>
+              <li><strong>수령인 등록 전 환불:</strong> 수령인이 티켓을 등록하기 전 단계에서는 <strong>구매자가 언제든지 100% 전액 환불(결제 취소)을 요청</strong>할 수 있으며, 유효기간(30일) 내 미등록된 티켓 역시 구매자에게 100% 전액 환불됩니다.</li>
+              <li><strong>제3자 양도 불가:</strong> 선물 티켓은 구매 시 지정한 수령인만 등록하여 사용할 수 있으며, <strong>수령인 외 제3자에게 양도·매매·재판매하는 것은 엄격히 불가</strong>합니다.</li>
+            </ul>
+          </div>
+
           {/* Business Info Footer */}
           <div className="pt-3 border-t border-gray-100 text-[10px] text-gray-400 space-y-0.5">
             <p>상호: 주식회사 레드뱅크 | 대표자: 이종철</p>
