@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
-import { X, ShieldCheck, Lock, Loader2, CreditCard, Smartphone } from "lucide-react";
+import { X, ShieldCheck, Lock, Loader2, CreditCard, Smartphone, Ticket } from "lucide-react";
 import { toast } from "sonner";
 
 interface TossPaymentModalProps {
@@ -183,6 +183,46 @@ export default function TossPaymentModal({
     }
   };
 
+  const handleRequestGiftCertificatePayment = async () => {
+    setSubmitting(true);
+    try {
+      const effectiveKey =
+        clientKey && (clientKey.startsWith("test_ck_") || clientKey.startsWith("live_ck_"))
+          ? clientKey
+          : "test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq";
+      const tossPayments = await loadTossPayments(effectiveKey);
+      const payment = tossPayments.payment({
+        customerKey: customerKey || `cust_${Date.now()}`,
+      });
+      await payment.requestPayment({
+        method: "CULTURE_GIFT_CERTIFICATE",
+        amount: {
+          currency: "KRW",
+          value: Number(amount),
+        },
+        orderId,
+        orderName,
+        successUrl,
+        failUrl,
+        customerEmail,
+        customerName,
+      });
+    } catch (e: any) {
+      if (
+        e?.code === "USER_CANCEL" ||
+        e?.code === "PAY_PROCESS_CANCELED" ||
+        e?.message?.includes("취소")
+      ) {
+        toast.info("상품권 결제가 취소되었습니다");
+      } else {
+        const msg = e?.message || "상품권 결제창 호출 중 오류가 발생했습니다";
+        toast.error(msg);
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-[150] pointer-events-auto flex items-center justify-center bg-black/60 backdrop-blur-xs p-3 sm:p-4 animate-in fade-in duration-200">
       <div className="relative w-full max-w-[560px] pointer-events-auto bg-white rounded-3xl shadow-2xl border border-gray-100 overflow-hidden flex flex-col max-h-[92vh]">
@@ -253,16 +293,28 @@ export default function TossPaymentModal({
               <span>{Number(amount).toLocaleString()}원 결제하기</span>
             )}
           </button>
-          <button
-            type="button"
-            id="toss-mobile-phone-btn"
-            disabled={submitting}
-            onClick={handleRequestMobilePhonePayment}
-            className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs border border-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Smartphone className="w-4 h-4 text-[#0064FF]" />
-            <span>휴대폰 소액결제로 결제하기 (SKT · KT · LG U+ · 알뜰폰)</span>
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              id="toss-mobile-phone-btn"
+              disabled={submitting}
+              onClick={handleRequestMobilePhonePayment}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-[11.5px] border border-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Smartphone className="w-4 h-4 text-[#0064FF] flex-shrink-0" />
+              <span>휴대폰 소액결제 (통신사)</span>
+            </button>
+            <button
+              type="button"
+              id="toss-gift-certificate-btn"
+              disabled={submitting}
+              onClick={handleRequestGiftCertificatePayment}
+              className="w-full py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-[11.5px] border border-slate-200 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <Ticket className="w-4 h-4 text-rose-500 flex-shrink-0" />
+              <span>상품권 결제 (문화·도서상품권)</span>
+            </button>
+          </div>
           <div className="flex items-center justify-center gap-3 text-[11px] text-gray-400">
             <span className="flex items-center gap-1">
               <Lock className="w-3 h-3" />

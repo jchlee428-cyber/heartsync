@@ -85,7 +85,7 @@ export default function TermsPage() {
             <h2 className="text-base font-bold text-gray-900 mb-2">제6조 (유료 서비스 및 결제)</h2>
             <ul className="text-sm text-gray-600 leading-relaxed space-y-1.5 list-disc list-inside">
               <li>유료 서비스의 이용요금 및 결제방식은 서비스 내 안내 페이지에 게시된 내용에 따릅니다.</li>
-              <li>결제는 토스페이먼츠를 통해 처리되며, 신용카드, 계좌이체, 간편결제 등의 방법을 지원합니다.</li>
+              <li>결제는 토스페이먼츠를 통해 처리되며, 신용·체크카드, 계좌이체, 간편결제, 휴대폰 소액결제, 상품권(문화·도서문화상품권) 결제 등의 방법을 지원합니다.</li>
               <li>결제 완료 후 유료 서비스가 즉시 활성화됩니다.</li>
             </ul>
           </section>
