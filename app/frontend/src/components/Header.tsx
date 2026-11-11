@@ -71,6 +71,7 @@ export default function Header() {
     localStorage.removeItem("access_token");
     localStorage.setItem("isLougOutManual", "true");
     setUser(null);
+    window.dispatchEvent(new Event("heartsync-auth-changed"));
     toast.success("로그아웃되었습니다.");
     if (location.pathname === "/my" || location.pathname === "/mypage") {
       window.location.reload();
@@ -145,7 +146,10 @@ export default function Header() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        onSuccess={() => checkUser()}
+        onSuccess={() => {
+          checkUser();
+          window.dispatchEvent(new Event("heartsync-auth-changed"));
+        }}
       />
     </>
   );

@@ -38,6 +38,16 @@ export function getPlanTier(planType?: string | null): number {
 }
 
 export function resolveLocalActivePlanType(serverPlanType?: string | null): string {
+  try {
+    const isLoggedOut = localStorage.getItem("isLougOutManual") === "true";
+    const token = localStorage.getItem("token");
+    if (!token || isLoggedOut) {
+      return "free";
+    }
+  } catch {
+    return "free";
+  }
+
   let bestTier = getPlanTier(serverPlanType);
 
   try {
@@ -213,3 +223,4 @@ export function normalizeUpgradeOrders<T extends Record<string, any>>(orders: T[
     return [...processed].reverse();
   }
 }
+

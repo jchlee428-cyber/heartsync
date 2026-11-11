@@ -175,6 +175,12 @@ export default function PricingPage() {
     checkAuth();
     checkTossStatus();
     checkStripeStatus();
+
+    const onAuthChanged = () => {
+      checkAuth();
+    };
+    window.addEventListener("heartsync-auth-changed", onAuthChanged);
+    return () => window.removeEventListener("heartsync-auth-changed", onAuthChanged);
   }, []);
 
   const getEffectiveUser = () => {
@@ -202,6 +208,7 @@ export default function PricingPage() {
       const token = localStorage.getItem("token");
       if (!token || isLoggedOut) {
         setUser(null);
+        setCurrentPlan("free");
         return;
       }
 
