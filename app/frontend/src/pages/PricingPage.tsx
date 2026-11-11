@@ -918,8 +918,25 @@ export default function PricingPage() {
               <p>
                 <strong>5. 시스템 오류 및 결제 분쟁:</strong> 결제 후 시스템 오류로 인해 리포트가 정상 생성되지 않은 경우 무조건 전액 환불 또는 이용권이 즉시 재지급됩니다.
               </p>
+              <div className="mt-2 pt-2 border-t border-gray-200 space-y-1.5">
+                <p className="font-bold text-gray-800">
+                  ■ 회원 및 비회원 구매 단계 이용약관 · 개인정보처리방침 고지 (상호명: 주식회사 레드뱅크)
+                </p>
+                <p>
+                  • <strong>서비스 이용약관 (주식회사 레드뱅크):</strong> 본 유료 서비스는 <strong>주식회사 레드뱅크</strong>(사업자등록번호: 132-86-23186, 대표자: 이종철)가 제공하는 디지털 콘텐츠로서 정기 자동결제가 아닌 단건 결제로 제공되며, 최대 서비스 제공기간은 30일(선물 티켓은 결제일로부터 30일 내 등록)입니다.{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer" className="text-pink-600 font-bold underline">
+                    [이용약관 전문보기]
+                  </a>
+                </p>
+                <p>
+                  • <strong>개인정보처리방침 (주식회사 레드뱅크):</strong> <strong>주식회사 레드뱅크</strong>는 회원 및 비회원 구매·선물하기 결제 및 리포트 제공을 위해 이메일, 성명/연락처, 결제기록을 수집·이용하며, 전자상거래법에 따라 계약·결제 기록을 5년간 보관 후 파기합니다(결제 처리 위탁: 토스페이먼츠).{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer" className="text-blue-600 font-bold underline">
+                    [개인정보처리방침 전문보기]
+                  </a>
+                </p>
+              </div>
               <p className="text-gray-500 pt-1">
-                * 고객센터 문의: support@heartsync.co.kr | 토스페이먼츠(PG) 에스크로 안전 거래 보장
+                * 상호명: 주식회사 레드뱅크 | 대표자: 이종철 | 사업자등록번호: 132-86-23186 | 고객센터: 1599-9573 (vikin@hanmail.net)
               </p>
             </div>
           )}

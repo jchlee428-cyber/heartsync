@@ -419,6 +419,23 @@ export default function TossPaymentModal({
                 </button>
               </div>
 
+              <div className="bg-slate-50 rounded-xl p-2.5 border border-slate-200 text-[10.5px] text-gray-600 space-y-1 leading-snug">
+                <p className="font-extrabold text-gray-800">
+                  📋 구매 단계 약관 고지 (상호명: 주식회사 레드뱅크 | 사업자번호: 132-86-23186)
+                </p>
+                <p className="text-[10px] text-gray-500">
+                  본 결제는 <strong>주식회사 레드뱅크</strong>의{" "}
+                  <a href="/terms" target="_blank" rel="noreferrer" className="text-[#0064FF] font-bold underline">
+                    서비스 이용약관
+                  </a>{" "}
+                  및{" "}
+                  <a href="/privacy" target="_blank" rel="noreferrer" className="text-[#0064FF] font-bold underline">
+                    개인정보처리방침
+                  </a>
+                  (회원·비회원 구매 개인정보 수집·이용 및 토스페이먼츠 결제 위탁)에 동의 후 진행됩니다.
+                </p>
+              </div>
+
               <div className="flex items-center justify-center gap-3 text-[11px] text-gray-400">
                 <span className="flex items-center gap-1">
                   <Lock className="w-3 h-3" />

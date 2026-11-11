@@ -15,12 +15,12 @@ export default function Footer({ className = "" }: FooterProps) {
       <div className="max-w-lg mx-auto space-y-6">
         {/* ── 1. 필수 법적 정책 링크 (Toss Payments Audit Links) ── */}
         <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-xs font-semibold text-gray-600">
-          <Link to="/terms" className="hover:text-gray-900 transition-colors">
-            이용약관
+          <Link to="/terms" className="hover:text-gray-900 transition-colors font-bold text-gray-800 underline">
+            서비스 이용약관 (주식회사 레드뱅크)
           </Link>
           <span className="text-gray-300">|</span>
-          <Link to="/privacy" className="hover:text-gray-900 transition-colors font-bold text-gray-800">
-            개인정보처리방침
+          <Link to="/privacy" className="hover:text-gray-900 transition-colors font-bold text-gray-800 underline">
+            개인정보처리방침 (주식회사 레드뱅크)
           </Link>
           <span className="text-gray-300">|</span>
           <button
@@ -34,6 +34,32 @@ export default function Footer({ className = "" }: FooterProps) {
           <Link to="/about" className="hover:text-gray-900 transition-colors">
             회사소개
           </Link>
+        </div>
+
+        {/* ── 1-2. 홈페이지 하단 이용약관 및 개인정보처리방침 핵심 내용 기재 (휴대폰 결제 심사 필수 요건) ── */}
+        <div className="bg-white border border-gray-200/80 rounded-2xl p-3.5 text-[10.5px] leading-relaxed text-gray-600 space-y-2 shadow-2xs">
+          <div>
+            <p className="font-extrabold text-gray-800">
+              📋 [서비스 이용약관 요약 — 상호명: 주식회사 레드뱅크]
+            </p>
+            <p className="text-gray-500 mt-0.5">
+              본 약관은 <strong>주식회사 레드뱅크</strong>(사업자등록번호: 132-86-23186, 대표자: 이종철)가 운영하는 HeartSync 서비스의 이용조건·절차 및 회원·비회원 구매자의 권리·의무를 규정합니다. 유료 디지털 콘텐츠는 단건 결제로 제공(최대 이용기간 30일, 선물 티켓 등록 유효기간 결제일로부터 30일)되며, 미사용 시 7일 이내 100% 환불을 보장합니다.{" "}
+              <Link to="/terms" className="text-pink-600 font-bold underline">
+                [이용약관 전문보기]
+              </Link>
+            </p>
+          </div>
+          <div className="pt-1.5 border-t border-gray-100">
+            <p className="font-extrabold text-gray-800">
+              🔒 [개인정보처리방침 요약 — 상호명: 주식회사 레드뱅크]
+            </p>
+            <p className="text-gray-500 mt-0.5">
+              <strong>주식회사 레드뱅크</strong>(개인정보보호책임자: 이종철, 연락처: 1599-9573)는 회원 가입, 비회원 구매·선물하기 결제, AI 진단 리포트 제공을 위해 최소한의 개인정보(이메일, 성명/연락처, 결제기록)를 수집하며, 회원 탈퇴 또는 목적 달성 시 지체 없이 파기합니다(전자상거래법상 결제·계약 기록 5년 보관, 결제 처리 위탁: 토스페이먼츠).{" "}
+              <Link to="/privacy" className="text-blue-600 font-bold underline">
+                [개인정보처리방침 전문보기]
+              </Link>
+            </p>
+          </div>
         </div>
 
         {/* ── 2. 의료법 및 심리상담 법적 리스크 방어 (면책 조항 필수) ── */}

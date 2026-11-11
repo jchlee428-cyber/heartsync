@@ -28,26 +28,38 @@ export default function TermsPage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-pink-50 mb-3">
             <FileText className="w-6 h-6 text-pink-500" />
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">이용약관</h1>
-          <p className="text-sm text-gray-500">HeartSync 서비스 이용약관</p>
+          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">서비스 이용약관</h1>
+          <p className="text-sm font-bold text-gray-700">주식회사 레드뱅크 (서비스명: HeartSync)</p>
+          <p className="text-xs text-gray-500 mt-0.5">사업자등록번호: 132-86-23186 | 대표자: 이종철</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-50 space-y-6">
+          {/* 사업자 정보 명시 박스 */}
+          <div className="bg-gray-50 rounded-xl p-4 border border-gray-200 text-xs text-gray-700 space-y-1">
+            <p className="font-extrabold text-gray-900">■ 서비스 제공 사업자 정보 (사업자등록증 기준)</p>
+            <p>• <strong>상호명(법인명):</strong> 주식회사 레드뱅크 (서비스명: HeartSync)</p>
+            <p>• <strong>대표자명:</strong> 이종철 | <strong>사업자등록번호:</strong> 132-86-23186</p>
+            <p>• <strong>통신판매업신고번호:</strong> 제2016-서울송파-0856호</p>
+            <p>• <strong>사업장 주소:</strong> 서울특별시 송파구 문정로 246, 2호 (마천동, 사회적경제센터 1-1)</p>
+            <p>• <strong>고객센터:</strong> 1599-9573 (이메일: vikin@hanmail.net)</p>
+          </div>
+
           {/* 제1조 */}
           <section>
             <h2 className="text-base font-bold text-gray-900 mb-2">제1조 (목적)</h2>
             <p className="text-sm text-gray-600 leading-relaxed">
-              이 약관은 HeartSync(이하 "서비스")가 제공하는 관계 진단 및 AI 코칭 서비스의 이용조건 및 절차, 이용자와 서비스 간의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
+              이 약관은 <strong>주식회사 레드뱅크</strong>(이하 "회사"라 하며, 운영하는 서비스명 "HeartSync")가 제공하는 관계 진단 및 AI 코칭 서비스의 이용조건 및 절차, 회사와 회원 및 비회원 구매자(이하 통칭하여 "이용자") 간의 권리·의무 및 책임사항을 규정함을 목적으로 합니다.
             </p>
           </section>
 
           {/* 제2조 */}
           <section>
-            <h2 className="text-base font-bold text-gray-900 mb-2">제2조 (정의)</h2>
+            <h2 className="text-base font-bold text-gray-900 mb-2">제2조 (정의 및 상호명)</h2>
             <ul className="text-sm text-gray-600 leading-relaxed space-y-1.5 list-disc list-inside">
-              <li>"서비스"란 HeartSync가 제공하는 관계 진단, AI 분석 리포트, AI 코칭 챗봇 등 모든 서비스를 의미합니다.</li>
-              <li>"이용자"란 이 약관에 따라 서비스를 이용하는 자를 말합니다.</li>
-              <li>"유료 서비스"란 서비스 내에서 결제를 통해 이용할 수 있는 프리미엄 기능을 의미합니다.</li>
+              <li>"회사"란 사업자등록증상 상호명인 <strong>주식회사 레드뱅크</strong>(사업자등록번호: 132-86-23186)를 의미합니다.</li>
+              <li>"서비스"란 주식회사 레드뱅크(HeartSync)가 제공하는 관계 진단, AI 분석 리포트, AI 코칭 챗봇 및 모바일 선물하기 티켓 등 모든 유·무료 서비스를 의미합니다.</li>
+              <li>"이용자"란 이 약관에 따라 회사가 제공하는 서비스를 이용하는 회원 및 비회원 구매자를 말합니다.</li>
+              <li>"유료 서비스"란 회사 내에서 결제를 통해 이용할 수 있는 단건 리포트, 패스 및 선물하기 티켓 등 디지털 콘텐츠를 의미합니다.</li>
             </ul>
           </section>
 

@@ -29,22 +29,33 @@ export default function PrivacyPage() {
             <Shield className="w-6 h-6 text-blue-500" />
           </div>
           <h1 className="text-2xl font-extrabold text-gray-900 mb-1">개인정보처리방침</h1>
-          <p className="text-sm text-gray-500">HeartSync 개인정보 보호 정책</p>
+          <p className="text-sm font-bold text-gray-700">주식회사 레드뱅크 (서비스명: HeartSync)</p>
+          <p className="text-xs text-gray-500 mt-0.5">사업자등록번호: 132-86-23186 | 대표자: 이종철</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-50 space-y-6">
+          {/* 사업자 정보 명시 박스 */}
+          <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 text-xs text-gray-700 space-y-1">
+            <p className="font-extrabold text-gray-900">■ 개인정보처리자(사업자) 기본 정보</p>
+            <p>• <strong>상호명(법인명):</strong> 주식회사 레드뱅크 (서비스명: HeartSync)</p>
+            <p>• <strong>대표자 및 개인정보보호책임자:</strong> 이종철 | <strong>사업자등록번호:</strong> 132-86-23186</p>
+            <p>• <strong>통신판매업신고번호:</strong> 제2016-서울송파-0856호</p>
+            <p>• <strong>사업장 주소:</strong> 서울특별시 송파구 문정로 246, 2호 (마천동, 사회적경제센터 1-1)</p>
+            <p>• <strong>고객센터:</strong> 1599-9573 (이메일: vikin@hanmail.net)</p>
+          </div>
+
           {/* 제1조 */}
           <section>
             <h2 className="text-base font-bold text-gray-900 mb-2">제1조 (개인정보의 수집 및 이용 목적)</h2>
             <p className="text-sm text-gray-600 leading-relaxed mb-2">
-              HeartSync(이하 "서비스")는 다음의 목적을 위해 개인정보를 수집·이용합니다.
+              <strong>주식회사 레드뱅크</strong>(이하 "회사"라 하며, 서비스명 "HeartSync")는 회원 및 비회원 구매자의 개인정보를 중요시하며, 「개인정보 보호법」 및 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」을 준수합니다. 회사는 다음의 목적을 위해 개인정보를 수집·이용합니다.
             </p>
             <ul className="text-sm text-gray-600 leading-relaxed space-y-1.5 list-disc list-inside">
               <li>회원 가입 및 관리: 본인 확인, 서비스 이용 자격 확인</li>
+              <li>비회원 구매 및 선물하기: 비회원 주문·결제 처리, 모바일 선물 티켓 발송 및 수령인 확인</li>
               <li>서비스 제공: 관계 진단, AI 분석 리포트 생성, AI 코칭 제공</li>
-              <li>결제 처리: 유료 서비스 결제 및 환불 처리</li>
-              <li>서비스 개선: 이용 통계 분석, 서비스 품질 향상</li>
-              <li>고객 지원: 문의 응대, 불만 처리, 공지사항 전달</li>
+              <li>결제 및 환불 처리: 신용카드, 간편결제, 휴대폰 소액결제, 상품권 결제 승인 및 정산·환불 처리</li>
+              <li>서비스 개선 및 고객 지원: 이용 통계 분석, 문의 응대, 불만 처리, 공지사항 전달</li>
             </ul>
           </section>
 

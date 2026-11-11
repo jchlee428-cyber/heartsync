@@ -270,12 +270,36 @@ export default function GiftModal({
             </p>
           </div>
 
-          {/* Gift Ticket Policy Notice Box */}
-          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-[10.5px] text-gray-600 space-y-1 leading-relaxed">
-            <p className="font-bold text-gray-800">📌 선물하기 티켓 유효기간 및 환불·양도 규정</p>
-            <p>• <strong>등록 유효기간:</strong> 결제일로부터 <strong>30일 이내</strong> 수령인 등록 필수 (등록 후 상품별 이용기간 최대 30일 적용, 총 서비스 제공기간 60일 이내)</p>
-            <p>• <strong>구매자 환불:</strong> 수령인이 티켓을 등록하기 전 단계에서는 구매자가 언제든 <strong>100% 전액 결제 취소·환불</strong>을 요청할 수 있습니다(유효기간 만료 미등록 시 100% 환불).</p>
-            <p>• <strong>양도 제한:</strong> 지정된 수령인만 등록 가능하며, <strong>수령인 외 제3자에게 양도·매매·재판매가 불가</strong>합니다.</p>
+          {/* Gift Ticket Policy Notice Box + Non-member Purchase Terms & Privacy Agreement (휴대폰 결제 심사 필수) */}
+          <div className="bg-gray-50 rounded-xl p-3 border border-gray-200 text-[10.5px] text-gray-600 space-y-2 leading-relaxed">
+            <div className="space-y-1">
+              <p className="font-bold text-gray-800">📌 선물하기 티켓 유효기간 및 환불·양도 규정 (주식회사 레드뱅크)</p>
+              <p>• <strong>등록 유효기간:</strong> 결제일로부터 <strong>30일 이내</strong> 수령인 등록 필수 (등록 후 상품별 이용기간 최대 30일 적용, 총 서비스 제공기간 60일 이내)</p>
+              <p>• <strong>구매자 환불:</strong> 수령인이 티켓을 등록하기 전 단계에서는 구매자가 언제든 <strong>100% 전액 결제 취소·환불</strong>을 요청할 수 있습니다(유효기간 만료 미등록 시 100% 환불).</p>
+              <p>• <strong>양도 제한:</strong> 지정된 수령인만 등록 가능하며, <strong>수령인 외 제3자에게 양도·매매·재판매가 불가</strong>합니다.</p>
+            </div>
+
+            <div className="pt-2 border-t border-gray-200 space-y-1.5">
+              <p className="font-bold text-gray-800">📋 비회원/회원 구매 이용약관 및 개인정보처리방침 동의 (주식회사 레드뱅크)</p>
+              <div className="bg-white rounded-lg p-2 border border-gray-200 text-[10px] text-gray-500 max-h-24 overflow-y-auto space-y-1">
+                <p><strong>[서비스 이용약관 — 주식회사 레드뱅크]</strong> 본 상품은 주식회사 레드뱅크(사업자등록번호: 132-86-23186)가 제공하는 디지털 콘텐츠이며, 결제 후 미사용(수령인 미등록) 시 100% 환불됩니다. 휴대폰 결제는 당월 취소 시 통신사 과금이 취소되며 익월 취소 시 고객센터(1599-9573)를 통해 계좌 환불됩니다.</p>
+                <p><strong>[개인정보처리방침 — 주식회사 레드뱅크]</strong> 주식회사 레드뱅크는 비회원 및 회원 선물 구매 처리를 위해 구매자/수령인 이름, 연락처, 결제정보를 수집·이용하며, 전자상거래법에 따라 대금결제 및 계약 기록을 5년간 보관 후 파기합니다(결제위탁: 토스페이먼츠).</p>
+              </div>
+              <label className="flex items-center justify-between gap-2 cursor-pointer pt-0.5">
+                <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                  <input type="checkbox" defaultChecked required className="w-3.5 h-3.5 rounded accent-pink-500" />
+                  <span>[필수] 서비스 이용약관 동의 (주식회사 레드뱅크)</span>
+                </span>
+                <a href="/terms" target="_blank" rel="noreferrer" className="text-[10px] font-bold text-pink-600 underline">전문보기</a>
+              </label>
+              <label className="flex items-center justify-between gap-2 cursor-pointer">
+                <span className="flex items-center gap-1.5 font-semibold text-gray-800">
+                  <input type="checkbox" defaultChecked required className="w-3.5 h-3.5 rounded accent-pink-500" />
+                  <span>[필수] 개인정보처리방침 및 개인정보 수집·이용 동의 (주식회사 레드뱅크)</span>
+                </span>
+                <a href="/privacy" target="_blank" rel="noreferrer" className="text-[10px] font-bold text-blue-600 underline">전문보기</a>
+              </label>
+            </div>
           </div>
 
           {/* Payment CTA Button */}
