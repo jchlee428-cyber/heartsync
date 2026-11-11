@@ -147,6 +147,7 @@ export default function PricingPage() {
   const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>("toss");
   const [stripeConfigured, setStripeConfigured] = useState(false);
   const [showRefundPolicy, setShowRefundPolicy] = useState(true);
+  const [showCoupleGuide, setShowCoupleGuide] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isGiftModalOpen, setIsGiftModalOpen] = useState(false);
   const [giftInitialPlan, setGiftInitialPlan] = useState<string>("monthly_subscription");
@@ -583,8 +584,8 @@ export default function PricingPage() {
           <button
             onClick={() => setActiveTab("self")}
             className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "self"
-                ? "bg-white text-gray-900 shadow-sm"
-                : "text-gray-600 hover:text-gray-900"
+              ? "bg-white text-gray-900 shadow-sm"
+              : "text-gray-600 hover:text-gray-900"
               }`}
           >
             <Zap className="w-4 h-4 text-pink-500" />
@@ -596,8 +597,8 @@ export default function PricingPage() {
               setIsGiftModalOpen(true);
             }}
             className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "gift"
-                ? "bg-white text-pink-600 shadow-sm"
-                : "text-pink-600 hover:text-pink-700"
+              ? "bg-white text-pink-600 shadow-sm"
+              : "text-pink-600 hover:text-pink-700"
               }`}
           >
             <Gift className="w-4 h-4 text-pink-500 animate-bounce" />
@@ -663,8 +664,8 @@ export default function PricingPage() {
               <div
                 key={plan.id}
                 className={`relative bg-white rounded-3xl p-6 shadow-md border-2 transition-all duration-300 ${plan.popular
-                    ? "border-pink-400 shadow-xl shadow-pink-100 ring-2 ring-pink-400/20"
-                    : "border-gray-100 hover:border-pink-200 hover:shadow-lg"
+                  ? "border-pink-400 shadow-xl shadow-pink-100 ring-2 ring-pink-400/20"
+                  : "border-gray-100 hover:border-pink-200 hover:shadow-lg"
                   }`}
               >
                 {/* 인기 뱃지 / 프리미엄 뱃지 */}
@@ -672,8 +673,8 @@ export default function PricingPage() {
                   <div className="absolute -top-3.5 right-5">
                     <span
                       className={`inline-flex items-center gap-1.5 px-3.5 py-1 text-xs font-extrabold rounded-full shadow-sm ${plan.popular
-                          ? "bg-gradient-to-r from-pink-500 via-rose-500 to-red-500 text-white"
-                          : "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+                        ? "bg-gradient-to-r from-pink-500 via-rose-500 to-red-500 text-white"
+                        : "bg-gradient-to-r from-purple-600 to-pink-600 text-white"
                         }`}
                     >
                       <Star className="w-3 h-3 fill-current" />
@@ -772,7 +773,7 @@ export default function PricingPage() {
                 </div>
 
                 {/* Features List */}
-                <ul className="space-y-2.5 mb-6">
+                <ul className="space-y-2.5 mb-5">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
                       <div className="rounded-full p-0.5 bg-green-100 text-green-600 mt-0.5 flex-shrink-0">
@@ -784,6 +785,87 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
+
+                {/* ── 커플 듀얼 매칭 패키지 전용: 2인 이용 방법 3단계 접이식 안내 박스 (결제 전 열람) ── */}
+                {plan.id === "monthly_subscription" && (
+                  <div className="mb-5 rounded-2xl border border-pink-200 bg-gradient-to-br from-pink-50/80 via-rose-50/50 to-white overflow-hidden shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setShowCoupleGuide((prev) => !prev)}
+                      className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-pink-100/40 transition-colors"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-pink-600 text-white text-[11px] font-black flex-shrink-0">
+                          ?
+                        </span>
+                        <span className="text-xs font-extrabold text-pink-900 truncate">
+                          💡 커플 2인 이용 방법 안내 (두 사람이 어떻게 진단하나요?)
+                        </span>
+                      </div>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-pink-600 bg-white px-2.5 py-1 rounded-full border border-pink-200 flex-shrink-0 ml-2 shadow-2xs">
+                        {showCoupleGuide ? (
+                          <>
+                            <span>접기</span>
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </>
+                        ) : (
+                          <>
+                            <span>사용법 보기</span>
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </>
+                        )}
+                      </span>
+                    </button>
+
+                    {showCoupleGuide && (
+                      <div className="px-4 pb-4 pt-2 border-t border-pink-100/90 space-y-2.5 text-xs text-gray-700">
+                        <div className="bg-white rounded-xl p-3 border border-pink-100 shadow-2xs">
+                          <p className="font-extrabold text-pink-700 mb-1 flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-pink-100 text-pink-800 text-[10px] font-black">
+                              STEP 1
+                            </span>
+                            결제 후 내가 먼저 50문항 정밀 진단 완료
+                          </p>
+                          <p className="text-[11px] text-gray-600 leading-relaxed pl-1">
+                            패키지 결제(₩29,000, 2인 포함) 후 <strong>[새 진단 시작하기]</strong>를 눌러 나의 50문항 진단을 먼저 완료하고 내 심층 리포트를 확인합니다.
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-3 border border-pink-100 shadow-2xs">
+                          <p className="font-extrabold text-pink-700 mb-1 flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-pink-100 text-pink-800 text-[10px] font-black">
+                              STEP 2
+                            </span>
+                            연인도 추가 결제 없이 50문항 진단 (3가지 방법 중 택1)
+                          </p>
+                          <ul className="text-[11px] text-gray-600 leading-relaxed space-y-1 pl-1">
+                            <li>
+                              • <strong>각자 스마트폰으로 할 때:</strong> 내 결과 화면 상단의 <strong>[연인 1초 초대장]</strong>을 카카오톡으로 보내면, 연인이 링크를 열어 자신의 폰에서 바로 50문항을 진단합니다.
+                            </li>
+                            <li>
+                              • <strong>만나서 함께 할 때:</strong> 같은 기기(마이페이지)에서 <strong>[새 진단 시작하기]</strong>를 눌러 연인이 이어서 50문항을 진단할 수 있습니다.
+                            </li>
+                            <li>
+                              • <strong>선물하기로 시작할 때:</strong> 하단 <strong>[연인에게 이 플랜 선물하기]</strong>로 결제하면 모바일 러브레터 티켓이 발급되어 두 사람 모두 이용할 수 있습니다.
+                            </li>
+                          </ul>
+                        </div>
+
+                        <div className="bg-white rounded-xl p-3 border border-pink-100 shadow-2xs">
+                          <p className="font-extrabold text-pink-700 mb-1 flex items-center gap-1.5">
+                            <span className="px-1.5 py-0.5 rounded bg-pink-100 text-pink-800 text-[10px] font-black">
+                              STEP 3
+                            </span>
+                            두 사람 시선 차이 비교 &amp; PDF 진단서 2부 소장
+                          </p>
+                          <p className="text-[11px] text-gray-600 leading-relaxed pl-1">
+                            <strong>[마이페이지 &gt; 리포트 비교]</strong>에서 두 사람의 5대 영역(갈등·친밀·신뢰·가치관·스킨십) 점수 차이를 한눈에 비교하고, <strong>각자의 PDF 진단서 총 2부 다운로드</strong> 및 <strong>1개월 무제한 AI 심리 코칭</strong>을 함께 이용하실 수 있습니다.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* CTA Button */}
                 <div>
@@ -807,8 +889,8 @@ export default function PricingPage() {
                         onClick={() => handlePurchase(plan.id)}
                         disabled={loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)}
                         className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
-                            ? "opacity-60 cursor-wait"
-                            : "hover:shadow-lg hover:scale-[1.01]"
+                          ? "opacity-60 cursor-wait"
+                          : "hover:shadow-lg hover:scale-[1.01]"
                           }`}
                       >
                         {loading === plan.id ? (
@@ -871,8 +953,8 @@ export default function PricingPage() {
             <button
               onClick={() => setPaymentProvider((prev) => (prev === "stripe" ? "toss" : "stripe"))}
               className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${paymentProvider === "stripe"
-                  ? "bg-purple-600 text-white border-purple-600"
-                  : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
+                ? "bg-purple-600 text-white border-purple-600"
+                : "bg-gray-50 text-gray-600 border-gray-200 hover:bg-gray-100"
                 }`}
             >
               {paymentProvider === "stripe" ? "국내 결제로 복귀" : "해외 결제(USD) 전환"}
