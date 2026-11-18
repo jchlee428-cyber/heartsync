@@ -13,9 +13,11 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from core.auth import AccessTokenError, decode_access_token
 from core.database import get_db
 from dependencies.auth import get_current_user
 from schemas.auth import UserResponse
@@ -188,24 +190,60 @@ class TossStatusResponse(BaseModel):
 # --- Endpoints ---
 
 
+_optional_bearer = HTTPBearer(auto_error=False)
+
+
+async def _get_optional_user(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(_optional_bearer),
+) -> Optional[UserResponse]:
+    if not credentials or credentials.scheme.lower() != "bearer":
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        user_id = payload.get("sub")
+        if not user_id:
+            return None
+        return UserResponse(
+            id=user_id,
+            email=payload.get("email", ""),
+            name=payload.get("name"),
+            role=payload.get("role", "user"),
+        )
+    except AccessTokenError:
+        return None
+
+
+def _infer_plan_type(order_id: str, amount: int) -> str:
+    if "couple_premium" in order_id or "all_care_pass" in order_id:
+        return "couple_premium"
+    if "monthly_subscription" in order_id or "couple_dual" in order_id:
+        return "monthly_subscription"
+    if amount in (49000, 29100, 20000):
+        return "couple_premium"
+    if amount in (29000, 9100):
+        return "monthly_subscription"
+    return "single_analysis"
+
+
 @router.get("/toss-status", response_model=TossStatusResponse)
 async def check_toss_status():
-    """Check if Toss Payments keys are configured (no auth required for debugging)."""
+    """Check if Toss Payments live keys are configured (no auth required)."""
     import os
 
     secret_key = os.environ.get("TOSS_SECRET_KEY", "").strip()
     client_key = get_toss_client_key()
+    is_live = secret_key.startswith("live_") or client_key.startswith("live_")
 
-    if secret_key:
+    if is_live:
         return TossStatusResponse(
             key_configured=True,
             client_key=client_key,
-            message="토스페이먼츠 API 키가 설정되어 있습니다",
+            message="토스페이먼츠 라이브 API 키가 설정되어 있습니다",
         )
     return TossStatusResponse(
         key_configured=False,
         client_key=client_key,
-        message="토스페이먼츠 테스트 키를 사용 중입니다. 실제 결제를 위해 TOSS_SECRET_KEY를 설정해주세요.",
+        message="토스페이먼츠 테스트 키를 사용 중입니다. 실제 결제를 위해 라이브 키(TOSS_CLIENT_KEY / TOSS_SECRET_KEY)를 설정해주세요.",
     )
 
 
@@ -281,25 +319,26 @@ async def prepare_order(
 @router.post("/confirm_payment", response_model=ConfirmPaymentResponse)
 async def confirm_payment(
     data: ConfirmPaymentRequest,
-    current_user: UserResponse = Depends(get_current_user),
+    current_user: Optional[UserResponse] = Depends(_get_optional_user),
     db: AsyncSession = Depends(get_db),
 ):
     """Confirm payment with Toss Payments API and activate user plan.
 
     Called by frontend after Toss redirects to successUrl with paymentKey, orderId, amount.
+    Supports both pre-created DB orders and resilient client/gift orders so live payments
+    are always confirmed with Toss Payments within the 10-minute approval window.
     """
     try:
-        # 1. Find the order by toss_order_id
+        # 1. Look up existing order if pre-created via /prepare_order
         orders_service = OrdersService(db)
         order = await orders_service.get_by_field("toss_order_id", data.order_id)
 
-        if not order:
-            raise HTTPException(status_code=404, detail="주문을 찾을 수 없습니다")
-
-        # 2. Verify amount matches
-        if order.amount != data.amount:
+        # 2. Verify amount matches if order exists in DB
+        if order and order.amount != data.amount:
             logger.error(f"Amount mismatch: order={order.amount}, request={data.amount}")
             raise HTTPException(status_code=400, detail="결제 금액이 일치하지 않습니다")
+
+        resolved_plan_type = order.plan_type if order else _infer_plan_type(data.order_id, data.amount)
 
         # 3. Confirm payment (handle simulated test payment vs Toss API)
         is_simulated = (
@@ -328,24 +367,42 @@ async def confirm_payment(
             )
             result = await payment_service.confirm_payment(confirm_request)
 
-        # 4. Update order status
+        # 4. Persist order & activate plan if DB order or authenticated user is available
         now = datetime.now()
         new_status = "paid" if result.status == "DONE" else "failed"
+        effective_user_id = (order.user_id if order else None) or (current_user.id if current_user else None)
 
-        await orders_service.update(
-            obj_id=order.id,
-            update_data={
-                "status": new_status,
-                "toss_payment_key": data.payment_key,
-                "updated_at": now,
-            },
-            user_id=current_user.id,
-        )
+        if order and effective_user_id:
+            await orders_service.update(
+                obj_id=order.id,
+                update_data={
+                    "status": new_status,
+                    "toss_payment_key": data.payment_key,
+                    "updated_at": now,
+                },
+                user_id=effective_user_id,
+            )
+        elif not order and effective_user_id:
+            plan_cfg = PLANS.get(resolved_plan_type, PLANS["single_analysis"])
+            order = await orders_service.create(
+                data={
+                    "plan_type": resolved_plan_type,
+                    "plan_name": plan_cfg["name"],
+                    "amount": data.amount,
+                    "currency": "krw",
+                    "status": new_status,
+                    "toss_order_id": data.order_id,
+                    "toss_payment_key": data.payment_key,
+                    "created_at": now,
+                    "updated_at": now,
+                },
+                user_id=effective_user_id,
+            )
 
-        # 5. If paid, deactivate previous lower-tier plans and activate new user plan
+        # 5. If paid and user is known, deactivate previous lower-tier plans and activate new user plan
         diagnosis_id = None
-        if new_status == "paid":
-            plan_config = PLANS.get(order.plan_type, {})
+        if new_status == "paid" and effective_user_id and order:
+            plan_config = PLANS.get(resolved_plan_type, {})
             days = plan_config.get("days", 30)
             analyses = plan_config.get("analyses", 1)
             expires_at = now + timedelta(days=days)
@@ -353,7 +410,7 @@ async def confirm_payment(
             plans_service = User_plansService(db)
             try:
                 existing_active = await plans_service.get_list(
-                    user_id=current_user.id,
+                    user_id=effective_user_id,
                     query_dict={"is_active": True},
                     sort="-created_at",
                     limit=20,
@@ -362,14 +419,14 @@ async def confirm_payment(
                     await plans_service.update(
                         obj_id=prev_plan.id,
                         update_data={"is_active": False, "updated_at": now},
-                        user_id=current_user.id,
+                        user_id=effective_user_id,
                     )
             except Exception as deact_err:
                 logger.warning(f"Failed to deactivate previous plans: {deact_err}")
 
             await plans_service.create(
                 data={
-                    "plan_type": order.plan_type,
+                    "plan_type": resolved_plan_type,
                     "analyses_remaining": analyses,
                     "expires_at": expires_at,
                     "is_active": True,
@@ -377,13 +434,13 @@ async def confirm_payment(
                     "created_at": now,
                     "updated_at": now,
                 },
-                user_id=current_user.id,
+                user_id=effective_user_id,
             )
 
         return ConfirmPaymentResponse(
             status=new_status,
-            db_order_id=order.id,
-            plan_type=order.plan_type,
+            db_order_id=order.id if order else None,
+            plan_type=resolved_plan_type,
             payment_method=result.method,
             receipt_url=result.receipt_url,
             diagnosis_id=diagnosis_id,

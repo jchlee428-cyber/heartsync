@@ -241,7 +241,43 @@ export default function PaymentSuccessPage() {
         applyClientFallbackSuccess();
       }
     } catch (e: any) {
-      console.warn("Backend confirm_payment fallback activated:", e);
+      console.warn("Backend confirm_payment failed, trying serverless /api/toss-confirm:", e);
+      try {
+        const serverlessRes = await fetch("/api/toss-confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payment_key: paymentKey,
+            order_id: orderId,
+            amount: Number(amount),
+          }),
+        });
+        const srvData = await serverlessRes.json().catch(() => null);
+        if (serverlessRes.ok && srvData?.status === "paid") {
+          const amtStr = amount ? `₩${Number(amount).toLocaleString()}` : "";
+          const resolvedPlan = srvData.plan_type || searchParams.get("plan_type") || "single_analysis";
+          setStatus("success");
+          setPlanType(resolvedPlan);
+          setDbOrderId((orderId || `ORD-${Date.now().toString().slice(-6)}`) as any);
+          setPaymentMethod(srvData.payment_method || "토스페이먼츠");
+          setReceiptUrl(srvData.receipt_url || null);
+          setPaidAmount(amtStr);
+          recordLocalPaymentSuccess(resolvedPlan, orderId, srvData.payment_method || "토스페이먼츠", amtStr);
+
+          if (!giftTicketId) {
+            const diagId = searchParams.get("diagnosis_id") || localStorage.getItem("heartsync_pending_diagnosis_id");
+            if (diagId) {
+              setDiagnosisId(diagId);
+              startCountdown(diagId);
+            } else {
+              tryFetchLatestDiagnosis();
+            }
+          }
+          return;
+        }
+      } catch (srvErr) {
+        console.warn("Serverless /api/toss-confirm fallback error:", srvErr);
+      }
       applyClientFallbackSuccess();
     }
   };

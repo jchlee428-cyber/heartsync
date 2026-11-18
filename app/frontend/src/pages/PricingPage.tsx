@@ -30,6 +30,7 @@ import Footer from "@/components/Footer";
 import TestPaymentModal from "@/components/TestPaymentModal";
 import TossPaymentModal from "@/components/TossPaymentModal";
 import { getPlanUpgradeQuote, resolveLocalActivePlanType } from "@/lib/planUpgrade";
+import { isLiveTossKey, resolveTossClientKey } from "@/lib/tossConfig";
 
 const client = createClient();
 
@@ -143,7 +144,8 @@ export default function PricingPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState<string | null>(null);
   const [currentPlan, setCurrentPlan] = useState<string>("free");
-  const [isTestMode, setIsTestMode] = useState(true);
+  const [isTestMode, setIsTestMode] = useState(() => !isLiveTossKey(resolveTossClientKey()));
+  const [serverTossClientKey, setServerTossClientKey] = useState<string | null>(null);
   const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>("toss");
   const [stripeConfigured, setStripeConfigured] = useState(false);
   const [showRefundPolicy, setShowRefundPolicy] = useState(true);
@@ -241,15 +243,25 @@ export default function PricingPage() {
   };
 
   const checkTossStatus = async () => {
+    const localLive = isLiveTossKey(resolveTossClientKey());
+    if (localLive) {
+      setIsTestMode(false);
+    }
     try {
       const res = await client.apiCall.invoke({
         url: "/api/v1/payment/toss-status",
         method: "GET",
         data: {},
       });
-      setIsTestMode(!res.data?.key_configured);
+      if (res.data?.client_key) {
+        setServerTossClientKey(res.data.client_key);
+      }
+      const effectiveKey = resolveTossClientKey(res.data?.client_key);
+      setIsTestMode(!isLiveTossKey(effectiveKey));
     } catch {
-      setIsTestMode(true);
+      if (!localLive) {
+        setIsTestMode(true);
+      }
     }
   };
 
@@ -320,9 +332,7 @@ export default function PricingPage() {
       let order_id = `HS-${planId}-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
       let order_name = quote.orderName;
       let amount = quote.finalPrice;
-      let client_key =
-        import.meta.env.VITE_TOSS_CLIENT_KEY ||
-        "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+      let client_key = resolveTossClientKey(serverTossClientKey);
 
       try {
         const res = await client.apiCall.invoke({
@@ -340,7 +350,7 @@ export default function PricingPage() {
           const serverAmount = Number(res.data.amount) || amount;
           amount = quote.isUpgrade ? Math.min(serverAmount, quote.finalPrice) : serverAmount;
           if (res.data.client_key) {
-            client_key = res.data.client_key;
+            client_key = resolveTossClientKey(res.data.client_key);
           }
         }
       } catch (prepErr) {

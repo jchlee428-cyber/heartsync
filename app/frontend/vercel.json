@@ -21,6 +21,10 @@
       "destination": "/api/user-sync"
     },
     {
+      "source": "/api/toss-confirm",
+      "destination": "/api/toss-confirm"
+    },
+    {
       "source": "/api/:match*",
       "destination": "https://heartsync-5tbs.onrender.com/api/:match*"
     },

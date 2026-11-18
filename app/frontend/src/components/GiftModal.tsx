@@ -10,6 +10,7 @@ import { Gift, Heart, Sparkles, Crown, Send, Check, ShieldCheck, ArrowRight, Loa
 import { toast } from "sonner";
 import { loadTossPayments } from "@tosspayments/tosspayments-sdk";
 import TossPaymentModal from "@/components/TossPaymentModal";
+import { isLiveTossKey, resolveTossClientKey } from "@/lib/tossConfig";
 
 interface GiftModalProps {
   isOpen: boolean;
@@ -97,9 +98,20 @@ export default function GiftModal({
       localStorage.setItem("heartsync_latest_gift", JSON.stringify(giftData));
 
       // 2. Initialize Toss Payments (Live or Test Mode)
-      const clientKey =
-        (import.meta as any).env?.VITE_TOSS_CLIENT_KEY ||
-        "test_gck_docs_Ovk5rk1EwkEbP0W43n07xlzm";
+      let clientKey = resolveTossClientKey();
+      if (!isLiveTossKey(clientKey)) {
+        try {
+          const statusRes = await fetch("/api/v1/payment/toss-status");
+          if (statusRes.ok) {
+            const statusJson = await statusRes.json();
+            if (statusJson?.client_key) {
+              clientKey = resolveTossClientKey(statusJson.client_key);
+            }
+          }
+        } catch {
+          // Ignore backend status fetch errors; keep resolved clientKey
+        }
+      }
       const customerKey = `cust_${Date.now()}`;
       const orderId = `order_${ticketId}`;
       const orderName = `[선물] HeartSync ${currentOption.name}`;
