@@ -4,6 +4,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { createClient } from "@metagptx/web-sdk";
 import LoginModal from "./LoginModal";
 import { toast } from "sonner";
+import { clearUserSessionOnLogout } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -55,6 +56,9 @@ export default function Header() {
 
   useEffect(() => {
     checkUser();
+    const onAuthChanged = () => checkUser();
+    window.addEventListener("heartsync-auth-changed", onAuthChanged);
+    return () => window.removeEventListener("heartsync-auth-changed", onAuthChanged);
   }, [location.pathname]);
 
   const handleLogout = async () => {
@@ -63,15 +67,8 @@ export default function Header() {
     } catch (e) {
       console.error(e);
     }
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("heartsync_user");
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("access_token");
-    localStorage.setItem("isLougOutManual", "true");
+    await clearUserSessionOnLogout();
     setUser(null);
-    window.dispatchEvent(new Event("heartsync-auth-changed"));
     toast.success("로그아웃되었습니다.");
     if (location.pathname === "/my" || location.pathname === "/mypage") {
       window.location.reload();

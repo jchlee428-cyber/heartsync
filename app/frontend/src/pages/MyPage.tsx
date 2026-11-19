@@ -7,7 +7,7 @@ import LoginModal from "@/components/LoginModal";
 import RelationshipTrendTracker from "@/components/RelationshipTrendTracker";
 import DailyRoutineCard from "@/components/DailyRoutineCard";
 import Footer from "@/components/Footer";
-import { syncUserDataWithCloud, deleteSyncedDiagnosis, getDeletedDiagnosisIds } from "@/lib/userSync";
+import { syncUserDataWithCloud, deleteSyncedDiagnosis, getDeletedDiagnosisIds, clearUserSessionOnLogout } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -139,6 +139,11 @@ export default function MyPage() {
 
   useEffect(() => {
     checkAuth();
+    const onAuthChanged = () => {
+      checkAuth();
+    };
+    window.addEventListener("heartsync-auth-changed", onAuthChanged);
+    return () => window.removeEventListener("heartsync-auth-changed", onAuthChanged);
   }, []);
 
   const checkAuth = async () => {
@@ -147,13 +152,15 @@ export default function MyPage() {
       const token = localStorage.getItem("token");
 
       if (!token || isLoggedOut) {
-        // Explicitly logged out or no token: thoroughly clear auth cache
+        // Explicitly logged out or no token: clear auth & payment UI state
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         localStorage.removeItem("heartsync_user");
         localStorage.removeItem("isLoggedIn");
         setUser(null);
-        await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+        setOrders([]);
+        setActivePlan(null);
+        await loadDiagnoses().catch(() => {});
         setLoading(false);
         return;
       }
@@ -203,13 +210,15 @@ export default function MyPage() {
         }
       } else {
         setUser(null);
-        await syncUserDataWithCloud().catch(() => {});
-        await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+        setOrders([]);
+        setActivePlan(null);
+        await loadDiagnoses().catch(() => {});
       }
     } catch {
       setUser(null);
-      await syncUserDataWithCloud().catch(() => {});
-      await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+      setOrders([]);
+      setActivePlan(null);
+      await loadDiagnoses().catch(() => {});
     } finally {
       setLoading(false);
     }
@@ -639,19 +648,14 @@ export default function MyPage() {
     } catch (e) {
       console.error(e);
     }
-    // Thoroughly remove all auth tokens & cached user profiles
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("heartsync_user");
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("auth_token");
-    localStorage.removeItem("access_token");
-    localStorage.setItem("isLougOutManual", "true");
+    await clearUserSessionOnLogout();
 
     setUser(null);
+    setOrders([]);
+    setActivePlan(null);
     setNotifications([]);
     setUnreadNotifCount(0);
-    await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
+    await loadDiagnoses().catch(() => {});
     toast.success("로그아웃되었습니다.");
   };
 
@@ -1020,7 +1024,7 @@ export default function MyPage() {
         )}
 
         {/* Payment & Plan Section */}
-        {(user || orders.length > 0 || (activePlan && activePlan.is_active)) && (
+        {user && (
           <div className="mt-6">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-bold text-gray-900 flex items-center gap-2">

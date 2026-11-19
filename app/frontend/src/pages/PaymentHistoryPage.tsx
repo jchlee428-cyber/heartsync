@@ -69,6 +69,11 @@ export default function PaymentHistoryPage() {
   useEffect(() => {
     window.scrollTo(0, 0);
     checkAuth();
+    const onAuthChanged = () => {
+      checkAuth();
+    };
+    window.addEventListener("heartsync-auth-changed", onAuthChanged);
+    return () => window.removeEventListener("heartsync-auth-changed", onAuthChanged);
   }, []);
 
   const checkAuth = async () => {
@@ -78,8 +83,9 @@ export default function PaymentHistoryPage() {
     if (!token || isLoggedOut) {
       localStorage.removeItem("user");
       setUser(null);
-      await syncUserDataWithCloud().catch(() => { });
-      await Promise.all([loadOrders(), loadActivePlan()]).catch(() => { });
+      setOrders([]);
+      setActivePlan(null);
+      setTotalSpent(0);
       setLoading(false);
       return;
     }
@@ -248,7 +254,7 @@ export default function PaymentHistoryPage() {
     );
   }
 
-  if (!user && orders.length === 0 && !activePlan) {
+  if (!user) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/30 to-white">
         <Header />

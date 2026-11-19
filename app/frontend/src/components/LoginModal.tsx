@@ -91,6 +91,7 @@ export default function LoginModal({
 
       // Synchronize user diagnoses, reports, and payment history across PC & Mobile
       await syncUserDataWithCloud(user.email || user.id);
+      window.dispatchEvent(new Event("heartsync-auth-changed"));
 
       toast.success(
         `💕 ${providerNames[provider] || ""} 간편 로그인이 완료되었습니다!`,

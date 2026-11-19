@@ -206,50 +206,27 @@ export async function syncUserDataWithCloud(
 }> {
   const local = gatherLocalUserData();
   const userKey = explicitUserKey || getCurrentUserKey();
-  if (!userKey) {
-    // Even if logged out, reconcile any cached localStorage orders against Toss live status
-    if (local.orders.length > 0) {
-      try {
-        const res = await fetch("/api/user-sync", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            reconcileOnly: true,
-            orders: local.orders,
-            activePlan: local.activePlan,
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          const syncedOrders = Array.isArray(data.orders) ? data.orders : local.orders;
-          const syncedPlan = "activePlan" in data ? data.activePlan : local.activePlan || null;
-          try {
-            localStorage.setItem("heartsync_orders", JSON.stringify(syncedOrders));
-            if (syncedPlan) {
-              localStorage.setItem("heartsync_active_plan", JSON.stringify(syncedPlan));
-            } else if ("activePlan" in data && data.activePlan === null) {
-              localStorage.removeItem("heartsync_active_plan");
-              localStorage.removeItem("heartsync_active_test_plan");
-              localStorage.removeItem("heartsync_test_paid");
-            }
-          } catch {
-            // ignore storage errors
-          }
-          return {
-            diagnoses: local.diagnoses,
-            orders: syncedOrders,
-            activePlan: syncedPlan,
-          };
-        }
-      } catch {
-        // ignore network errors
-      }
-    }
+  const normalizedKey = String(userKey || "")
+    .trim()
+    .toLowerCase();
+  if (!normalizedKey) {
     return {
       diagnoses: local.diagnoses,
-      orders: local.orders,
-      activePlan: local.activePlan,
+      orders: [],
+      activePlan: null,
     };
+  }
+
+  let localOrdersForUser = local.orders;
+  let localPlanForUser = local.activePlan;
+  if (typeof window !== "undefined") {
+    const owner = String(localStorage.getItem("heartsync_orders_owner") || "")
+      .trim()
+      .toLowerCase();
+    if (owner && owner !== normalizedKey) {
+      localOrdersForUser = [];
+      localPlanForUser = null;
+    }
   }
 
   let userId = "";
@@ -267,11 +244,11 @@ export async function syncUserDataWithCloud(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        userKey,
+        userKey: normalizedKey,
         userId,
         diagnoses: local.diagnoses,
-        orders: local.orders,
-        activePlan: local.activePlan,
+        orders: localOrdersForUser,
+        activePlan: localPlanForUser,
         deletedDiagnosisIds: local.deletedDiagnosisIds,
       }),
     });
@@ -279,8 +256,8 @@ export async function syncUserDataWithCloud(
     if (!res.ok) {
       return {
         diagnoses: local.diagnoses,
-        orders: local.orders,
-        activePlan: local.activePlan,
+        orders: localOrdersForUser,
+        activePlan: localPlanForUser,
       };
     }
 
@@ -297,13 +274,14 @@ export async function syncUserDataWithCloud(
 
     const syncedOrders: any[] = Array.isArray(data.orders)
       ? data.orders
-      : local.orders;
+      : localOrdersForUser;
 
     const syncedPlan =
-      "activePlan" in data ? data.activePlan : local.activePlan || null;
+      "activePlan" in data ? data.activePlan : localPlanForUser || null;
 
     // Persist synced data back into localStorage so PC and Mobile match 100%
     try {
+      localStorage.setItem("heartsync_orders_owner", normalizedKey);
       localStorage.setItem(
         "heartsync_local_diagnoses",
         JSON.stringify(syncedDiagnoses)
@@ -364,10 +342,39 @@ export async function syncUserDataWithCloud(
   } catch {
     return {
       diagnoses: local.diagnoses,
-      orders: local.orders,
-      activePlan: local.activePlan,
+      orders: localOrdersForUser,
+      activePlan: localPlanForUser,
     };
   }
+}
+
+/**
+ * Backs up the logged-in user's data to cloud before clearing all local auth & payment caches on logout.
+ */
+export async function clearUserSessionOnLogout(): Promise<void> {
+  if (typeof window === "undefined") return;
+  const currentKey = getCurrentUserKey();
+  if (currentKey) {
+    try {
+      await syncUserDataWithCloud(currentKey);
+    } catch {
+      // ignore offline backup failure
+    }
+  }
+
+  localStorage.removeItem("token");
+  localStorage.removeItem("user");
+  localStorage.removeItem("heartsync_user");
+  localStorage.removeItem("isLoggedIn");
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("heartsync_orders");
+  localStorage.removeItem("heartsync_orders_owner");
+  localStorage.removeItem("heartsync_active_plan");
+  localStorage.removeItem("heartsync_active_test_plan");
+  localStorage.removeItem("heartsync_test_paid");
+  localStorage.setItem("isLougOutManual", "true");
+  window.dispatchEvent(new Event("heartsync-auth-changed"));
 }
 
 export async function fetchRemoteDiagnosisById(
