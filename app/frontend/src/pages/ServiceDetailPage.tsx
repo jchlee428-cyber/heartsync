@@ -143,61 +143,61 @@ export default function ServiceDetailPage() {
     <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/20 to-white">
       <Header />
 
-      <div className="max-w-lg mx-auto px-5 pt-6 pb-28">
+      <div className="max-w-lg mx-auto px-5 pt-20 pb-28">
         {/* Back Button */}
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-gray-600 text-sm font-medium mb-6 px-3 py-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all active:scale-95"
+          className="inline-flex items-center gap-2 text-gray-600 text-[14.5px] font-medium mb-6 px-3.5 py-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-all active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           이전 페이지로
         </button>
 
         {/* Hero Section */}
-        <div className="relative rounded-2xl overflow-hidden mb-8 shadow-xl">
+        <div className="relative rounded-2xl overflow-hidden mb-10 shadow-xl">
           <img
             src={HERO_IMAGE}
             alt="HeartSync 서비스 소개"
-            className="w-full h-56 object-cover"
+            className="w-full h-60 sm:h-64 object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6">
-            <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white/90 text-xs font-medium mb-3 border border-white/20">
+            <span className="inline-block px-3.5 py-1 bg-white/20 backdrop-blur-sm rounded-full text-white/95 text-[13px] font-semibold mb-3 border border-white/25">
               AI 기반 관계 진단 플랫폼
             </span>
-            <h1 className="text-2xl font-extrabold text-white leading-tight mb-2">
+            <h1 className="hs-section-title font-extrabold text-white mb-2">
               HeartSync
               <br />
               <span className="text-yellow-200">서비스 상세 소개</span>
             </h1>
-            <p className="text-white/80 text-sm">
+            <p className="text-white/90 text-[15px] sm:text-[16px] leading-[1.6]">
               심리학과 AI 기술로 당신의 관계를 진단하고 개선합니다
             </p>
           </div>
         </div>
 
         {/* What is HeartSync */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               About HeartSync
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               HeartSync란?
             </h2>
           </div>
 
           <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-6 border border-pink-100">
-            <p className="text-gray-700 text-[15px] leading-relaxed mb-4">
+            <p className="text-gray-800 hs-body mb-4">
               <span className="font-bold text-pink-600">HeartSync</span>는 최신 AI 기술과 심리학 이론을 결합하여 커플·부부의 관계를 과학적으로 진단하고, 맞춤형 솔루션을 제공하는{" "}
               <span className="font-semibold text-gray-900">AI 관계 코칭 플랫폼</span>입니다.
             </p>
-            <p className="text-gray-600 text-sm leading-relaxed mb-4">
-              자동차도 정기적으로 정비를 받고, 건강도 정기 검진을 받습니다. 하지만 가장 소중한 <span className="font-semibold text-gray-800">사람과의 관계</span>는 어떤가요?
+            <p className="text-gray-700 hs-body mb-4">
+              자동차도 정기적으로 정비를 받고, 건강도 정기 검진을 받습니다. 하지만 가장 소중한 <span className="font-semibold text-gray-900">사람과의 관계</span>는 어떤가요?
             </p>
-            <div className="flex items-center gap-2 bg-white/80 px-4 py-3 rounded-xl border border-pink-100">
+            <div className="flex items-center gap-2.5 bg-white/85 px-4 py-3.5 rounded-xl border border-pink-100">
               <Heart className="w-5 h-5 text-pink-500 fill-pink-500 flex-shrink-0" />
-              <p className="text-pink-700 text-sm font-semibold">
+              <p className="text-pink-700 text-[15px] sm:text-[16px] font-semibold leading-[1.5]">
                 관계의 문제는 '사랑이 부족해서'가 아니라 '기술이 부족해서' 생깁니다.
               </p>
             </div>
@@ -205,34 +205,34 @@ export default function ServiceDetailPage() {
         </section>
 
         {/* Diagnosis Categories */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               Diagnosis
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               무엇을 진단하나요?
             </h2>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="hs-subtext text-gray-500 mt-1.5">
               50문항으로 관계의 핵심 영역을 분석합니다
             </p>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {diagnosisCategories.map((cat) => {
               const Icon = cat.icon;
               return (
                 <div
                   key={cat.title}
-                  className="bg-white rounded-2xl p-5 shadow-md border border-gray-50 hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-2xl p-5 shadow-md border border-gray-100 hover:shadow-lg transition-shadow"
                 >
                   <div className="flex items-start gap-4">
                     <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${cat.color} flex items-center justify-center flex-shrink-0`}>
                       <Icon className="w-5 h-5 text-white" />
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-base font-bold text-gray-900 mb-1">{cat.title}</h3>
-                      <p className="text-sm text-gray-500 leading-relaxed">{cat.description}</p>
+                      <h3 className="hs-card-title font-bold text-gray-900 mb-1.5">{cat.title}</h3>
+                      <p className="hs-subtext text-gray-600">{cat.description}</p>
                     </div>
                   </div>
                 </div>
@@ -242,12 +242,12 @@ export default function ServiceDetailPage() {
         </section>
 
         {/* How It Works */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               How It Works
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               이용 과정
             </h2>
           </div>
@@ -264,14 +264,14 @@ export default function ServiceDetailPage() {
                     <div className="relative z-10 w-12 h-12 rounded-full bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center shadow-lg flex-shrink-0">
                       <Icon className="w-5 h-5 text-white" />
                     </div>
-                    <div className="flex-1 bg-white rounded-2xl p-4 shadow-sm border border-gray-50">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-bold text-pink-500 tracking-wider bg-pink-50 px-2 py-0.5 rounded-full">
+                    <div className="flex-1 bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[12px] font-bold text-pink-500 tracking-[0.06em] bg-pink-50 px-2.5 py-0.5 rounded-full">
                           STEP {step.step}
                         </span>
                       </div>
-                      <h3 className="text-base font-bold text-gray-900 mb-1">{step.title}</h3>
-                      <p className="text-sm text-gray-500 leading-relaxed">{step.description}</p>
+                      <h3 className="hs-card-title font-bold text-gray-900 mb-1.5">{step.title}</h3>
+                      <p className="hs-subtext text-gray-600">{step.description}</p>
                     </div>
                   </div>
                 );
@@ -281,12 +281,12 @@ export default function ServiceDetailPage() {
         </section>
 
         {/* Target Users */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               Who Is It For
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               이런 분들에게 추천합니다
             </h2>
           </div>
@@ -295,26 +295,26 @@ export default function ServiceDetailPage() {
             {targetUsers.map((target) => (
               <div
                 key={target.title}
-                className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-50"
+                className="bg-white rounded-2xl overflow-hidden shadow-lg border border-gray-100"
               >
                 <div className="relative">
                   <img
                     src={target.image}
                     alt={target.title}
-                    className="w-full h-36 object-cover"
+                    className="w-full h-40 object-cover"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-4">
-                    <h3 className="text-white font-bold text-lg">{target.title}</h3>
-                    <p className="text-white/70 text-xs">{target.subtitle}</p>
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/65 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-5">
+                    <h3 className="text-white hs-card-title font-bold">{target.title}</h3>
+                    <p className="text-white/85 text-[13.5px] font-medium mt-0.5">{target.subtitle}</p>
                   </div>
                 </div>
-                <div className="p-5">
-                  <ul className="space-y-2.5">
+                <div className="p-5 sm:p-6">
+                  <ul className="space-y-3">
                     {target.points.map((point, idx) => (
                       <li key={idx} className="flex items-start gap-2.5">
-                        <CheckCircle className="w-4 h-4 text-pink-500 mt-0.5 flex-shrink-0" />
-                        <span className="text-sm text-gray-600">{point}</span>
+                        <CheckCircle className="w-4 h-4 text-pink-500 mt-1 flex-shrink-0" />
+                        <span className="hs-body text-gray-700">{point}</span>
                       </li>
                     ))}
                   </ul>
@@ -325,29 +325,29 @@ export default function ServiceDetailPage() {
         </section>
 
         {/* Features */}
-        <section className="mb-10">
+        <section className="mb-12">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               Features
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               HeartSync의 특장점
             </h2>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             {features.map((feature) => {
               const Icon = feature.icon;
               return (
                 <div
                   key={feature.title}
-                  className="bg-white rounded-2xl p-4 shadow-md border border-gray-50 hover:shadow-lg transition-shadow"
+                  className="bg-white rounded-2xl p-5 shadow-md border border-gray-100 hover:shadow-lg transition-shadow"
                 >
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-pink-500 to-rose-500 flex items-center justify-center mb-3">
                     <Icon className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-sm font-bold text-gray-900 mb-1">{feature.title}</h3>
-                  <p className="text-xs text-gray-500 leading-relaxed">{feature.description}</p>
+                  <h3 className="hs-card-title font-bold text-gray-900 mb-1.5">{feature.title}</h3>
+                  <p className="hs-subtext text-gray-600">{feature.description}</p>
                 </div>
               );
             })}
@@ -355,13 +355,13 @@ export default function ServiceDetailPage() {
         </section>
 
         {/* Pricing Teaser */}
-        <section className="mb-10">
-          <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl p-6 text-center shadow-xl">
+        <section className="mb-12">
+          <div className="bg-gradient-to-br from-pink-500 to-rose-500 rounded-2xl p-6 sm:p-7 text-center shadow-xl">
             <Sparkles className="w-8 h-8 text-yellow-200 mx-auto mb-3" />
-            <h2 className="text-xl font-extrabold text-white mb-2">
+            <h2 className="hs-subtitle font-extrabold text-white mb-2">
               지금 바로 시작하세요
             </h2>
-            <p className="text-white/80 text-sm mb-5 leading-relaxed">
+            <p className="text-white/90 hs-subtext mb-6">
               무료 진단으로 관계 상태를 확인하고,
               <br />
               프리미엄 분석으로 더 깊은 인사이트를 얻으세요.
@@ -369,14 +369,14 @@ export default function ServiceDetailPage() {
             <div className="space-y-3">
               <button
                 onClick={() => navigate("/diagnosis?fresh=true")}
-                className="w-full inline-flex items-center justify-center gap-2 bg-white text-pink-600 font-bold text-base px-8 py-3.5 rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
+                className="w-full inline-flex items-center justify-center gap-2 bg-white text-pink-600 hs-btn font-bold px-8 py-3.5 rounded-full shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
               >
                 무료 진단 시작하기
                 <ArrowRight className="w-4 h-4" />
               </button>
               <button
                 onClick={() => navigate("/pricing")}
-                className="w-full inline-flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white font-semibold text-sm px-8 py-3 rounded-full border border-white/30 hover:bg-white/30 transition-all duration-300"
+                className="w-full inline-flex items-center justify-center gap-2 bg-white/20 backdrop-blur-sm text-white hs-btn font-semibold px-8 py-3.5 rounded-full border border-white/30 hover:bg-white/30 transition-all duration-300"
               >
                 요금제 보기
                 <ArrowRight className="w-4 h-4" />
@@ -388,15 +388,15 @@ export default function ServiceDetailPage() {
         {/* FAQ */}
         <section className="mb-6">
           <div className="text-center mb-6">
-            <span className="text-xs font-semibold text-pink-500 tracking-widest uppercase">
+            <span className="hs-eyebrow text-pink-500 uppercase">
               FAQ
             </span>
-            <h2 className="text-xl font-extrabold text-gray-900 mt-1">
+            <h2 className="hs-subtitle font-bold text-gray-900 mt-1">
               자주 묻는 질문
             </h2>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3.5">
             {[
               {
                 q: "진단은 정말 무료인가요?",
@@ -417,13 +417,13 @@ export default function ServiceDetailPage() {
             ].map((faq, idx) => (
               <div
                 key={idx}
-                className="bg-white rounded-2xl p-5 shadow-sm border border-gray-50"
+                className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100"
               >
-                <h3 className="text-sm font-bold text-gray-900 mb-2 flex items-start gap-2">
+                <h3 className="text-[16.5px] sm:text-[18px] font-bold text-gray-900 mb-2 flex items-start gap-2 leading-[1.4]">
                   <span className="text-pink-500 font-extrabold">Q.</span>
                   {faq.q}
                 </h3>
-                <p className="text-sm text-gray-500 leading-relaxed pl-6">
+                <p className="hs-subtext text-gray-600 pl-6">
                   {faq.a}
                 </p>
               </div>

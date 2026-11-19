@@ -258,25 +258,25 @@ export default function PaymentHistoryPage() {
     return (
       <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/30 to-white">
         <Header />
-        <div className="max-w-lg mx-auto px-5 pt-6 pb-28">
+        <div className="max-w-lg mx-auto px-5 pt-20 pb-28">
           <button
             onClick={() => navigate(-1)}
-            className="inline-flex items-center gap-2 text-gray-500 text-sm font-medium mb-6 px-3 py-2 rounded-lg bg-white shadow-sm border border-gray-100 hover:bg-gray-50 hover:text-gray-700 transition-all active:scale-95"
+            className="inline-flex items-center gap-2 text-gray-600 text-[14.5px] font-medium mb-6 px-3.5 py-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-gray-800 transition-all active:scale-95"
           >
             <ArrowLeft className="w-4 h-4" />
             돌아가기
           </button>
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-extrabold text-gray-900 mb-1">결제 내역</h1>
-            <p className="text-sm text-gray-500">나의 결제 및 구독 현황을 확인하세요</p>
+          <div className="text-center mb-7">
+            <h1 className="hs-section-title font-extrabold text-gray-900 mb-1.5">결제 내역</h1>
+            <p className="hs-subtext text-gray-500">나의 결제 및 구독 현황을 확인하세요</p>
           </div>
-          <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-50 text-center">
+          <div className="bg-white rounded-2xl p-10 shadow-sm border border-gray-100 text-center">
             <CreditCard className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-sm font-medium mb-2">로그인이 필요합니다</p>
-            <p className="text-gray-400 text-xs mb-6">결제 내역을 확인하려면 로그인해주세요</p>
+            <p className="text-gray-800 hs-card-title font-bold mb-2">로그인이 필요합니다</p>
+            <p className="text-gray-500 hs-subtext mb-6">결제 내역을 확인하려면 로그인해주세요</p>
             <button
               onClick={() => navigate("/login?from_url=/payment-history")}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold text-sm px-6 py-3 rounded-full shadow-md hover:shadow-lg transition-all"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white hs-btn font-bold px-7 py-3.5 rounded-full shadow-md hover:shadow-lg transition-all"
             >
               로그인하기
             </button>
@@ -293,20 +293,20 @@ export default function PaymentHistoryPage() {
     <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/30 to-white">
       <Header />
 
-      <div className="max-w-lg mx-auto px-5 pt-6 pb-28">
+      <div className="max-w-lg mx-auto px-5 pt-20 pb-28">
         {/* Back Button */}
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-gray-500 text-sm font-medium mb-6 px-3 py-2 rounded-lg bg-white shadow-sm border border-gray-100 hover:bg-gray-50 hover:text-gray-700 transition-all active:scale-95"
+          className="inline-flex items-center gap-2 text-gray-600 text-[14.5px] font-medium mb-6 px-3.5 py-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-gray-800 transition-all active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           돌아가기
         </button>
 
         {/* Page Title */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">결제 내역</h1>
-          <p className="text-sm text-gray-500">나의 결제 및 구독 현황을 확인하세요</p>
+        <div className="text-center mb-7">
+          <h1 className="hs-section-title font-extrabold text-gray-900 mb-1.5">결제 내역</h1>
+          <p className="hs-subtext text-gray-500">나의 결제 및 구독 현황을 확인하세요</p>
         </div>
 
         {/* Active Plan Card */}

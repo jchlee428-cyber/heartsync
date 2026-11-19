@@ -1421,7 +1421,7 @@ ${topWeakLines}
                           <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center flex-shrink-0`}>
                             <span className="text-base">{section.icon}</span>
                           </div>
-                          <span className="text-sm font-bold text-gray-800 flex-1">{section.title}</span>
+                          <span className="text-[16.5px] sm:text-[18px] font-bold text-gray-900 flex-1 tracking-[-0.02em]">{section.title}</span>
                           <svg
                             className={`w-4 h-4 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
@@ -1430,8 +1430,8 @@ ${topWeakLines}
                           </svg>
                         </button>
                         {isExpanded && (
-                          <div className="px-4 pb-4">
-                            <div className="prose prose-sm prose-pink max-w-none text-gray-700 leading-relaxed text-[13px] whitespace-pre-wrap">
+                          <div className="px-4 sm:px-5 pb-5">
+                            <div className="prose prose-pink max-w-none text-gray-800 hs-body whitespace-pre-wrap">
                               {section.content}
                             </div>
                           </div>
@@ -1441,8 +1441,8 @@ ${topWeakLines}
                   })}
                 </div>
               ) : aiReport ? (
-                <div className="bg-white rounded-2xl p-5 shadow-md border border-gray-50">
-                  <div className="prose prose-sm prose-pink max-w-none text-gray-700 leading-relaxed whitespace-pre-wrap text-sm">
+                <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-md border border-gray-100">
+                  <div className="prose prose-pink max-w-none text-gray-800 hs-body whitespace-pre-wrap">
                     {aiReport}
                     {isGenerating && <span className="inline-block w-1.5 h-4 bg-pink-500 animate-pulse ml-0.5 align-middle" />}
                   </div>

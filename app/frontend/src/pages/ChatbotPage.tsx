@@ -1557,7 +1557,7 @@ export default function ChatbotPage() {
                   )}
                 </div>
                 <div
-                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                  className={`max-w-[82%] rounded-2xl px-4 py-3.5 text-[15.5px] sm:text-[16.5px] leading-[1.72] tracking-[-0.01em] ${
                     msg.role === "assistant"
                       ? "bg-card shadow-sm border border-border text-foreground"
                       : "bg-primary text-primary-foreground"

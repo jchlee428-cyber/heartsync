@@ -22,7 +22,9 @@ export default {
     extend: {
       fontFamily: {
         sans: [
+          '"Pretendard Variable"',
           'Pretendard',
+          '"Noto Sans KR"',
           '-apple-system',
           'BlinkMacSystemFont',
           'system-ui',
@@ -30,7 +32,6 @@ export default {
           '"Helvetica Neue"',
           '"Segoe UI"',
           '"Apple SD Gothic Neo"',
-          '"Noto Sans KR"',
           '"Malgun Gothic"',
           'sans-serif',
         ],

@@ -142,10 +142,10 @@ export default function LoginPage() {
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-pink-500 to-rose-400 flex items-center justify-center mx-auto mb-3 shadow-md shadow-pink-200">
               <Heart className="w-7 h-7 text-white fill-white" />
             </div>
-            <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+            <h1 className="hs-section-title font-extrabold text-gray-900">
               로그인 / 간편 시작
             </h1>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1 font-medium">
+            <p className="hs-subtext text-gray-500 mt-1.5">
               1초 만에 간편 로그인하고 우리 커플의 진단 리포트를 관리하세요
             </p>
           </div>

@@ -15,10 +15,10 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-pink-50/30 to-white">
       <Header />
-      <div className="max-w-lg mx-auto px-5 pt-6 pb-28">
+      <div className="max-w-lg mx-auto px-5 pt-20 pb-28">
         <button
           onClick={() => navigate(-1)}
-          className="inline-flex items-center gap-2 text-gray-500 text-sm font-medium mb-6 px-3 py-2 rounded-lg bg-white shadow-sm border border-gray-100 hover:bg-gray-50 hover:text-gray-700 transition-all active:scale-95"
+          className="inline-flex items-center gap-2 text-gray-600 text-[14.5px] font-medium mb-6 px-3.5 py-2 rounded-lg bg-white shadow-sm border border-gray-200 hover:bg-gray-50 hover:text-gray-800 transition-all active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           돌아가기
@@ -28,14 +28,14 @@ export default function PrivacyPage() {
           <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-blue-50 mb-3">
             <Shield className="w-6 h-6 text-blue-500" />
           </div>
-          <h1 className="text-2xl font-extrabold text-gray-900 mb-1">개인정보처리방침</h1>
-          <p className="text-sm font-bold text-gray-700">주식회사 레드뱅크 (서비스명: HeartSync)</p>
-          <p className="text-xs text-gray-500 mt-0.5">사업자등록번호: 132-86-23186 | 대표자: 이종철</p>
+          <h1 className="hs-section-title font-extrabold text-gray-900 mb-1.5">개인정보처리방침</h1>
+          <p className="text-[15.5px] font-semibold text-gray-700">주식회사 레드뱅크 (서비스명: HeartSync)</p>
+          <p className="hs-caption text-gray-500 mt-1">사업자등록번호: 132-86-23186 | 대표자: 이종철</p>
         </div>
 
-        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-50 space-y-6">
+        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 space-y-6 text-[15px] sm:text-[16px] leading-[1.75]">
           {/* 사업자 정보 명시 박스 */}
-          <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 text-xs text-gray-700 space-y-1">
+          <div className="bg-blue-50/50 rounded-xl p-4 border border-blue-100 text-[13.5px] leading-[1.68] text-gray-700 space-y-1">
             <p className="font-extrabold text-gray-900">■ 개인정보처리자(사업자) 기본 정보</p>
             <p>• <strong>상호명(법인명):</strong> 주식회사 레드뱅크 (서비스명: HeartSync)</p>
             <p>• <strong>대표자 및 개인정보보호책임자:</strong> 이종철 | <strong>사업자등록번호:</strong> 132-86-23186</p>

@@ -582,15 +582,15 @@ export default function PricingPage() {
         )}
 
         {/* Header */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center gap-1.5 px-3.5 py-1 bg-pink-100/70 text-pink-700 text-xs font-bold rounded-full mb-3 shadow-xs">
-            <Shield className="w-3.5 h-3.5 text-pink-600" />
+        <div className="text-center mb-7">
+          <div className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-pink-100/70 text-pink-700 text-[13px] font-semibold rounded-full mb-3.5 shadow-xs">
+            <Shield className="w-4 h-4 text-pink-600" />
             1초 간편결제 · 100% 안전 보장
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight mb-2">
+          <h1 className="hs-section-title font-extrabold text-gray-900 mb-2.5">
             나와 연인을 위한 맞춤 플랜
           </h1>
-          <p className="text-sm text-gray-600 leading-relaxed max-w-md mx-auto">
+          <p className="hs-body text-gray-600 max-w-md mx-auto">
             15년 임상 심리학 연구 및 AI 관계 코칭을 통해<br />
             서로의 속마음과 관계의 해답을 명쾌하게 찾아보세요.
           </p>
@@ -600,7 +600,7 @@ export default function PricingPage() {
         <div className="flex rounded-2xl bg-pink-100/70 p-1.5 mb-6 border border-pink-200/80 shadow-xs">
           <button
             onClick={() => setActiveTab("self")}
-            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "self"
+            className={`flex-1 py-3 rounded-xl text-[13.5px] sm:text-[15px] font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === "self"
               ? "bg-white text-gray-900 shadow-sm"
               : "text-gray-600 hover:text-gray-900"
               }`}
@@ -613,7 +613,7 @@ export default function PricingPage() {
               setActiveTab("gift");
               setIsGiftModalOpen(true);
             }}
-            className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-black transition-all flex items-center justify-center gap-1.5 ${activeTab === "gift"
+            className={`flex-1 py-3 rounded-xl text-[13.5px] sm:text-[15px] font-bold transition-all flex items-center justify-center gap-1.5 ${activeTab === "gift"
               ? "bg-white text-pink-600 shadow-sm"
               : "text-pink-600 hover:text-pink-700"
               }`}
@@ -707,7 +707,7 @@ export default function PricingPage() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
+                      <h3 className="hs-card-title font-bold text-gray-900">{plan.name}</h3>
                       {isUpgrade ? (
                         <span className="text-[11px] font-extrabold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
                           🔄 기결제 -₩{quote.creditFormatted} 차감
@@ -721,13 +721,13 @@ export default function PricingPage() {
                         )
                       )}
                     </div>
-                    <p className="text-xs text-gray-500 mt-0.5">{plan.description}</p>
+                    <p className="text-[13.5px] sm:text-[14.5px] text-gray-500 mt-1 leading-[1.55]">{plan.description}</p>
                   </div>
                 </div>
 
                 {/* Target Audience Callout */}
-                <div className="mb-4 bg-gray-50/80 rounded-xl px-3.5 py-2 border border-gray-100">
-                  <p className="text-[11px] text-gray-600 leading-snug">
+                <div className="mb-4 bg-gray-50/80 rounded-xl px-4 py-2.5 border border-gray-100">
+                  <p className="text-[13px] sm:text-[13.5px] text-gray-600 leading-[1.55]">
                     <strong className="text-pink-600 font-semibold">추천 대상:</strong> {plan.targetAudience}
                   </p>
                 </div>
@@ -793,10 +793,10 @@ export default function PricingPage() {
                 <ul className="space-y-2.5 mb-5">
                   {plan.features.map((feature, idx) => (
                     <li key={idx} className="flex items-start gap-2.5">
-                      <div className="rounded-full p-0.5 bg-green-100 text-green-600 mt-0.5 flex-shrink-0">
+                      <div className="rounded-full p-0.5 bg-green-100 text-green-600 mt-1 flex-shrink-0">
                         <Check className="w-3.5 h-3.5" />
                       </div>
-                      <span className="text-sm font-medium text-gray-700 leading-tight">
+                      <span className="text-[15px] sm:text-[16px] font-medium text-gray-700 leading-[1.6]">
                         {feature}
                       </span>
                     </li>
@@ -905,7 +905,7 @@ export default function PricingPage() {
                       <button
                         onClick={() => handlePurchase(plan.id)}
                         disabled={loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)}
-                        className={`w-full py-3.5 rounded-2xl text-[15px] font-extrabold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
+                        className={`w-full py-4 rounded-2xl hs-btn font-bold text-white transition-all duration-300 bg-gradient-to-r ${plan.btnGradient} shadow-md active:scale-98 flex items-center justify-center gap-2 ${loading === plan.id || (paymentProvider === "stripe" && !stripeConfigured)
                           ? "opacity-60 cursor-wait"
                           : "hover:shadow-lg hover:scale-[1.01]"
                           }`}
@@ -932,7 +932,7 @@ export default function PricingPage() {
                       </button>
 
                       {/* ── 3번 개선: 버튼 직하단 환불 보증 안내 ── */}
-                      <div className="flex items-center justify-center gap-1.5 mt-2.5 text-[11px] text-gray-500">
+                      <div className="flex items-center justify-center gap-1.5 mt-2.5 text-[12.5px] sm:text-[13px] text-gray-500">
                         <Shield className="w-3.5 h-3.5 text-emerald-600" />
                         <span>AI 리포트 생성 전 7일 이내 100% 전액 환불 보장</span>
                       </div>
@@ -946,12 +946,12 @@ export default function PricingPage() {
                       setGiftInitialPlan(plan.id);
                       setIsGiftModalOpen(true);
                     }}
-                    className="w-full mt-3 py-3 rounded-2xl border-2 border-pink-200 bg-pink-50/60 hover:bg-pink-100/80 text-pink-700 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs"
+                    className="w-full mt-3 py-3 rounded-2xl border-2 border-pink-200 bg-pink-50/60 hover:bg-pink-100/80 text-pink-700 font-semibold text-[13.5px] sm:text-[14.5px] flex items-center justify-center gap-1.5 transition-all active:scale-98 shadow-xs"
                   >
                     <Gift className="w-4 h-4 text-pink-500" />
                     <span>연인에게 이 플랜 선물하기 (모바일 러브레터 티켓 발송)</span>
                   </button>
-                  <p className="mt-1.5 text-[10px] text-gray-400 text-center">
+                  <p className="mt-2 text-[12px] text-gray-400 text-center">
                     * 선물 티켓 등록 유효기간: 결제일로부터 30일 (미등록 시 100% 환불 / 제3자 양도 불가)
                   </p>
                 </div>

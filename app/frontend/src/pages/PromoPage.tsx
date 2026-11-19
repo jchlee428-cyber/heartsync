@@ -310,7 +310,7 @@ export default function PromoPage() {
         </div>
 
         {/* Headline */}
-        <h1 className="text-3xl sm:text-5xl font-black text-gray-900 tracking-tight leading-tight mb-4">
+        <h1 className="hs-hero-title text-gray-900 mb-5">
           {activePersona.headline}
           <br />
           <span className="bg-gradient-to-r from-pink-600 via-rose-500 to-purple-600 bg-clip-text text-transparent">
@@ -318,7 +318,7 @@ export default function PromoPage() {
           </span>
         </h1>
 
-        <p className="text-sm sm:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed mb-7 font-medium">
+        <p className="hs-hero-subtitle text-gray-600 max-w-2xl mx-auto mb-8">
           {activePersona.subcopy}
         </p>
 
@@ -326,7 +326,7 @@ export default function PromoPage() {
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3 max-w-xl mx-auto mb-8">
           <button
             onClick={() => navigate("/diagnosis")}
-            className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white font-black text-base shadow-lg shadow-pink-200 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
+            className="w-full sm:flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-pink-500 via-rose-500 to-pink-600 text-white hs-btn font-bold shadow-lg shadow-pink-200 hover:shadow-xl hover:scale-[1.01] active:scale-[0.99] transition-all flex items-center justify-center gap-2"
           >
             <span>{activePersona.ctaText}</span>
             <ArrowRight className="w-5 h-5" />
@@ -336,35 +336,35 @@ export default function PromoPage() {
             onClick={() =>
               miniTestRef.current?.scrollIntoView({ behavior: "smooth" })
             }
-            className="w-full sm:w-auto py-4 px-5 rounded-2xl bg-white text-pink-600 font-bold text-sm border-2 border-pink-200 hover:bg-pink-50 transition-all"
+            className="w-full sm:w-auto py-4 px-5 rounded-2xl bg-white text-pink-600 hs-btn font-semibold border-2 border-pink-200 hover:bg-pink-50 transition-all"
           >
             ⚡ 30초 미니 판독기 먼저 해보기
           </button>
         </div>
 
         {/* Trust Metrics Bar */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-2xl mx-auto bg-white/90 rounded-2xl p-4 border border-pink-100 shadow-xs">
+        <div className="grid grid-cols-3 gap-2 sm:gap-4 max-w-2xl mx-auto bg-white/90 rounded-2xl p-4 sm:p-5 border border-pink-100 shadow-xs">
           <div>
-            <p className="text-lg sm:text-2xl font-black text-pink-600">
+            <p className="text-xl sm:text-2xl font-extrabold text-pink-600 hs-num">
               4.9 / 5.0
             </p>
-            <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
+            <p className="text-[12.5px] sm:text-[13.5px] text-gray-500 font-medium mt-0.5">
               실제 이용자 만족도
             </p>
           </div>
           <div className="border-x border-gray-100">
-            <p className="text-lg sm:text-2xl font-black text-gray-900">
+            <p className="text-xl sm:text-2xl font-extrabold text-gray-900 hs-num">
               50문항 · 5대 영역
             </p>
-            <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
+            <p className="text-[12.5px] sm:text-[13.5px] text-gray-500 font-medium mt-0.5">
               가트맨·애착이론 정밀 분석
             </p>
           </div>
           <div>
-            <p className="text-lg sm:text-2xl font-black text-emerald-600">
+            <p className="text-xl sm:text-2xl font-extrabold text-emerald-600 hs-num">
               100% 비공개
             </p>
-            <p className="text-[11px] sm:text-xs text-gray-500 font-medium">
+            <p className="text-[12.5px] sm:text-[13.5px] text-gray-500 font-medium mt-0.5">
               개인 대화 원문 비수집 보장
             </p>
           </div>
@@ -375,13 +375,13 @@ export default function PromoPage() {
       <section className="py-10 px-4 sm:px-6 max-w-4xl mx-auto">
         <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-md border border-pink-100">
           <div className="text-center mb-6">
-            <span className="text-xs font-extrabold text-pink-600 bg-pink-50 px-3 py-1 rounded-full">
+            <span className="text-[13px] font-bold text-pink-600 bg-pink-50 px-3.5 py-1 rounded-full">
               공감 체크리스트
             </span>
-            <h2 className="text-xl sm:text-2xl font-black text-gray-900 mt-2">
+            <h2 className="hs-section-title font-bold text-gray-900 mt-2.5">
               혹시 요즘 우리 모습도 이런가요?
             </h2>
-            <p className="text-xs sm:text-sm text-gray-500 mt-1">
+            <p className="hs-subtext text-gray-500 mt-1.5">
               해당하는 항목을 눌러보세요. 숨겨진 관계 역동을 즉시 알려드립니다.
             </p>
           </div>

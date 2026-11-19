@@ -7,10 +7,10 @@ export default function RelationshipSection() {
   const navigate = useNavigate();
 
   return (
-    <section className="px-5 py-12 max-w-lg mx-auto" aria-labelledby="relationship-heading">
+    <section className="px-5 py-14 max-w-lg mx-auto" aria-labelledby="relationship-heading">
       {/* Title */}
       <div className="text-center mb-8 animate-slide-up">
-        <h2 id="relationship-heading" className="text-2xl font-extrabold text-gray-900 leading-snug">
+        <h2 id="relationship-heading" className="hs-section-title font-extrabold text-gray-900">
           당신의 관계,
           <br />
           안녕<span className="text-pink-500">하</span> 👋 십니까?
@@ -19,12 +19,12 @@ export default function RelationshipSection() {
 
       {/* Description */}
       <div className="bg-gradient-to-br from-pink-50 to-rose-50 rounded-2xl p-6 mb-6 border border-pink-100">
-        <p className="text-gray-600 text-[15px] leading-relaxed">
-          자동차도 <span className="font-semibold text-gray-800">1년에 한 번</span> 정비를 받고,
+        <p className="text-gray-700 hs-body">
+          자동차도 <span className="font-semibold text-gray-900">1년에 한 번</span> 정비를 받고,
           <br />
-          우리 몸도 <span className="font-semibold text-gray-800">2년에 한 번</span> 검진을 받습니다.
+          우리 몸도 <span className="font-semibold text-gray-900">2년에 한 번</span> 검진을 받습니다.
           <br />
-          <span className="text-gray-800 font-medium">
+          <span className="text-gray-900 font-medium inline-block mt-1">
             당신의 소중한 연인, 배우자 관계는 어떠신가요?
           </span>
         </p>
@@ -35,17 +35,17 @@ export default function RelationshipSection() {
         <img
           src={AI_IMAGE}
           alt="AI 기술로 커플 관계를 분석하는 모습을 나타내는 일러스트"
-          className="w-full h-48 object-cover"
+          className="w-full h-52 sm:h-56 object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" aria-hidden="true" />
-        <figcaption className="absolute bottom-0 left-0 right-0 p-5">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/25 to-transparent" aria-hidden="true" />
+        <figcaption className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
+          <div className="flex items-center gap-2 mb-1.5">
             <Heart className="w-5 h-5 text-pink-400 fill-pink-400" aria-hidden="true" />
-            <span className="text-white font-bold text-sm">
+            <span className="text-white hs-card-title font-bold">
               HeartSync는 믿습니다.
             </span>
           </div>
-          <p className="text-white/90 text-xs leading-relaxed">
+          <p className="text-white/95 text-[15px] sm:text-[16px] leading-[1.65]">
             관계의 문제는 &apos;사랑이 부족해서&apos;가 아니라{" "}
             <span className="text-yellow-300 font-semibold">
               &apos;기술이 부족해서&apos;
@@ -56,18 +56,18 @@ export default function RelationshipSection() {
       </figure>
 
       {/* Message Card */}
-      <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100 mb-6">
-        <p className="text-gray-600 text-sm leading-relaxed mb-4">
+      <div className="bg-white rounded-2xl p-6 shadow-md border border-gray-100 mb-7">
+        <p className="text-gray-700 hs-body mb-4">
           심리학과 AI 기술로 당신의 관계를 정밀 진단하고, 다시 설렐 수 있는
           구체적인 처방전을 드립니다.
         </p>
-        <div className="flex items-center gap-2 bg-pink-50 px-4 py-3 rounded-xl" role="note">
-          <span className="text-pink-600 text-sm font-bold" aria-hidden="true">💕</span>
-          <p className="text-pink-700 text-xs font-semibold">
+        <div className="flex items-center gap-2.5 bg-pink-50 px-4 py-3.5 rounded-xl" role="note">
+          <span className="text-pink-600 text-base font-bold" aria-hidden="true">💕</span>
+          <p className="text-pink-700 text-[14.5px] sm:text-[15.5px] font-semibold">
             헤어지기 전, 마지막으로 확인해보세요.
           </p>
         </div>
-        <p className="text-gray-500 text-xs mt-3 text-center">
+        <p className="text-gray-500 hs-caption mt-3.5 text-center">
           내 관계, AI가 편견 없이 함께 점검합니다.
         </p>
       </div>
@@ -75,10 +75,10 @@ export default function RelationshipSection() {
       {/* CTA Button */}
       <button
         onClick={() => navigate("/service-detail")}
-        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white font-bold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2"
+        className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-pink-500 to-rose-500 text-white hs-btn font-bold py-4 rounded-2xl shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-2"
       >
         서비스 상세 소개 보기
-        <ArrowRight className="w-4 h-4" aria-hidden="true" />
+        <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" aria-hidden="true" />
       </button>
     </section>
   );

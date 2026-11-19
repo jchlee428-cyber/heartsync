@@ -1364,14 +1364,14 @@ export default function DiagnosisPage() {
           <legend className="sr-only">
             질문 {question.id}: {question.text}
           </legend>
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-3.5">
             <span
-              className="flex-shrink-0 w-8 h-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-bold"
+              className="flex-shrink-0 w-9 h-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-[15px] font-bold hs-num mt-0.5"
               aria-hidden="true"
             >
               {question.id}
             </span>
-            <h2 className="text-base font-semibold text-foreground leading-relaxed flex-1" id={`question-${question.id}`}>
+            <h2 className="text-[18px] sm:text-[20px] font-semibold text-foreground leading-[1.55] tracking-[-0.015em] flex-1" id={`question-${question.id}`}>
               {question.text}
             </h2>
             {/* Tooltip trigger */}
@@ -1442,7 +1442,7 @@ export default function DiagnosisPage() {
                 >
                   {isSelected ? <CheckCircle className="w-5 h-5" /> : score}
                 </div>
-                <span className={`text-[15px] font-medium ${isSelected ? "text-primary" : "text-muted-foreground"}`}>
+                <span className={`text-[16px] sm:text-[17px] ${isSelected ? "font-semibold text-primary" : "font-medium text-foreground/85"}`}>
                   {label}
                 </span>
               </button>

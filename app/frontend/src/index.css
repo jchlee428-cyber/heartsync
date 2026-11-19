@@ -37,6 +37,42 @@
     --sidebar-accent-foreground: 240 5.9% 10%;
     --sidebar-border: 220 13% 91%;
     --sidebar-ring: 346.8 77.2% 49.8%;
+
+    /* ── HeartSync Typography Design System Tokens ── */
+    --font-family-base: "Pretendard Variable", "Pretendard", "Noto Sans KR", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+
+    --font-weight-light: 300;
+    --font-weight-regular: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    --font-weight-bold: 700;
+    --font-weight-extrabold: 800;
+    --font-weight-black: 900;
+
+    --font-size-hero: clamp(2.25rem, 4.8vw, 4.125rem);        /* 36px -> 66px */
+    --font-size-hero-sub: clamp(1.1875rem, 2vw, 1.625rem);    /* 19px -> 26px */
+    --font-size-section: clamp(1.75rem, 3vw, 2.375rem);       /* 28px -> 38px */
+    --font-size-subtitle: clamp(1.3125rem, 2.1vw, 1.75rem);   /* 21px -> 28px */
+    --font-size-card-title: clamp(1.125rem, 1.5vw, 1.375rem); /* 18px -> 22px */
+    --font-size-body: clamp(1rem, 1.05vw, 1.09375rem);        /* 16px -> 17.5px */
+    --font-size-subtext: clamp(0.90625rem, 0.95vw, 1rem);     /* 14.5px -> 16px */
+    --font-size-nav: clamp(0.9375rem, 1vw, 1.0625rem);        /* 15px -> 17px */
+    --font-size-btn: clamp(1rem, 1.05vw, 1.09375rem);         /* 16px -> 17.5px */
+    --font-size-caption: clamp(0.8125rem, 0.85vw, 0.875rem);  /* 13px -> 14px */
+
+    --line-height-hero: 1.2;
+    --line-height-heading: 1.3;
+    --line-height-card-title: 1.36;
+    --line-height-body: 1.75;
+    --line-height-subtext: 1.62;
+    --line-height-btn: 1.3;
+
+    --letter-spacing-hero: -0.038em;
+    --letter-spacing-heading: -0.028em;
+    --letter-spacing-card-title: -0.02em;
+    --letter-spacing-body: -0.01em;
+    --letter-spacing-btn: -0.01em;
+    --letter-spacing-caption: 0em;
   }
 
   .dark {
@@ -73,13 +109,45 @@
     @apply border-border;
   }
 
+  html {
+    font-family: var(--font-family-base);
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+
   body {
     @apply bg-background text-foreground font-sans;
-    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', 'Malgun Gothic', sans-serif;
+    font-family: var(--font-family-base);
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    letter-spacing: -0.02em;
+    letter-spacing: var(--letter-spacing-body);
     word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+
+  h1 {
+    letter-spacing: var(--letter-spacing-hero);
+    line-height: var(--line-height-hero);
+  }
+
+  h2 {
+    letter-spacing: var(--letter-spacing-heading);
+    line-height: var(--line-height-heading);
+  }
+
+  h3,
+  h4 {
+    letter-spacing: var(--letter-spacing-card-title);
+    line-height: var(--line-height-card-title);
+  }
+
+  button,
+  a {
+    letter-spacing: var(--letter-spacing-btn);
   }
 
   /* Global focus-visible styles for keyboard navigation */
@@ -102,6 +170,83 @@
     clip-path: none !important;
     overflow: visible !important;
     white-space: nowrap !important;
+  }
+}
+
+@layer components {
+  .hs-hero-title {
+    font-size: var(--font-size-hero);
+    font-weight: var(--font-weight-extrabold);
+    line-height: var(--line-height-hero);
+    letter-spacing: var(--letter-spacing-hero);
+  }
+
+  .hs-hero-subtitle {
+    font-size: var(--font-size-hero-sub);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    letter-spacing: -0.015em;
+  }
+
+  .hs-section-title {
+    font-size: var(--font-size-section);
+    font-weight: var(--font-weight-bold);
+    line-height: var(--line-height-heading);
+    letter-spacing: var(--letter-spacing-heading);
+  }
+
+  .hs-subtitle {
+    font-size: var(--font-size-subtitle);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.34;
+    letter-spacing: -0.022em;
+  }
+
+  .hs-card-title {
+    font-size: var(--font-size-card-title);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-card-title);
+    letter-spacing: var(--letter-spacing-card-title);
+  }
+
+  .hs-body {
+    font-size: var(--font-size-body);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-body);
+    letter-spacing: var(--letter-spacing-body);
+  }
+
+  .hs-subtext {
+    font-size: var(--font-size-subtext);
+    font-weight: var(--font-weight-regular);
+    line-height: var(--line-height-subtext);
+    letter-spacing: -0.005em;
+  }
+
+  .hs-caption {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-regular);
+    line-height: 1.55;
+    letter-spacing: var(--letter-spacing-caption);
+  }
+
+  .hs-btn {
+    font-size: var(--font-size-btn);
+    font-weight: var(--font-weight-semibold);
+    line-height: var(--line-height-btn);
+    letter-spacing: var(--letter-spacing-btn);
+  }
+
+  .hs-eyebrow {
+    font-size: 0.8125rem;
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+  }
+
+  .hs-num {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
   }
 }
 
