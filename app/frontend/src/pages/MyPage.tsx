@@ -352,10 +352,24 @@ export default function MyPage() {
 
     const orderMap = new Map<string, any>();
     for (const o of localOrders) {
-      orderMap.set(String(o.order_id || o.id), o);
+      const key = String(o.order_id || o.toss_order_id || o.id);
+      orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id });
     }
     for (const o of serverOrders) {
-      orderMap.set(String(o.order_id || o.id), o);
+      const key = String(o.toss_order_id || o.order_id || o.id);
+      const prev = orderMap.get(key);
+      if (!prev) {
+        orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id });
+      } else {
+        const keepCanceled = prev.status === "cancelled" || prev.status === "refunded";
+        orderMap.set(key, {
+          ...o,
+          ...prev,
+          order_id: prev.order_id || o.toss_order_id || o.order_id,
+          status: keepCanceled ? prev.status : prev.status || o.status,
+          canceled_at: prev.canceled_at || o.canceled_at,
+        });
+      }
     }
 
     const merged = Array.from(orderMap.values()).sort((a, b) => {

@@ -214,12 +214,23 @@ export async function syncUserDataWithCloud(
     };
   }
 
+  let userId = "";
+  if (typeof window !== "undefined") {
+    try {
+      const parsedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      if (parsedUser?.id) userId = String(parsedUser.id);
+    } catch {
+      // ignore
+    }
+  }
+
   try {
     const res = await fetch("/api/user-sync", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         userKey,
+        userId,
         diagnoses: local.diagnoses,
         orders: local.orders,
         activePlan: local.activePlan,
@@ -250,7 +261,8 @@ export async function syncUserDataWithCloud(
       ? data.orders
       : local.orders;
 
-    const syncedPlan = data.activePlan || local.activePlan || null;
+    const syncedPlan =
+      "activePlan" in data ? data.activePlan : local.activePlan || null;
 
     // Persist synced data back into localStorage so PC and Mobile match 100%
     try {
@@ -279,7 +291,9 @@ export async function syncUserDataWithCloud(
         localStorage.removeItem(`heartsync_diagnosis_${delId}`);
       }
 
-      if (syncedOrders.length > 0) {
+      if (Array.isArray(data.orders)) {
+        localStorage.setItem("heartsync_orders", JSON.stringify(syncedOrders));
+      } else if (syncedOrders.length > 0) {
         localStorage.setItem("heartsync_orders", JSON.stringify(syncedOrders));
       }
 
@@ -295,6 +309,10 @@ export async function syncUserDataWithCloud(
           );
           localStorage.setItem("heartsync_test_paid", "true");
         }
+      } else if ("activePlan" in data && data.activePlan === null) {
+        localStorage.removeItem("heartsync_active_plan");
+        localStorage.removeItem("heartsync_active_test_plan");
+        localStorage.removeItem("heartsync_test_paid");
       }
     } catch {
       // ignore storage quota errors

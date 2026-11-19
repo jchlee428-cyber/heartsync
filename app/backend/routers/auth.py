@@ -117,21 +117,17 @@ async def social_login(payload: SocialLoginRequest, db: AsyncSession = Depends(g
     auth_service = AuthService(db)
     provider = (payload.provider or "kakao").lower()
 
-    if provider == "kakao":
-        provider_id = payload.provider_id or uuid.uuid4().hex[:10]
-        sub = f"kakao_{provider_id}"
-        email = payload.email or f"kakao_{provider_id[:8]}@kakao.com"
-        name = payload.name or "카카오 회원"
-    elif provider == "naver":
-        provider_id = payload.provider_id or uuid.uuid4().hex[:10]
-        sub = f"naver_{provider_id}"
-        email = payload.email or f"naver_{provider_id[:8]}@naver.com"
-        name = payload.name or "네이버 회원"
-    elif provider == "google":
-        provider_id = payload.provider_id or uuid.uuid4().hex[:10]
-        sub = f"google_{provider_id}"
-        email = payload.email or f"google_{provider_id[:8]}@gmail.com"
-        name = payload.name or "구글 회원"
+    if provider in ("kakao", "naver", "google"):
+        default_names = {"kakao": "카카오 회원", "naver": "네이버 회원", "google": "구글 회원"}
+        raw_email = (payload.email or "").strip().lower()
+        email = raw_email or f"{provider}_member@heartsync.kr"
+        if payload.provider_id:
+            sub = f"{provider}_{payload.provider_id}"
+        elif email == f"{provider}_member@heartsync.kr":
+            sub = f"usr_{provider}_sync"
+        else:
+            sub = f"usr_{provider}_{hashlib.md5(email.encode()).hexdigest()[:10]}"
+        name = payload.name or default_names[provider]
     elif provider == "demo":
         demo_name = payload.name or "테스트 유저"
         sub = f"demo_{uuid.uuid4().hex[:8]}" if not payload.email else f"user_{hashlib.md5(payload.email.encode()).hexdigest()[:12]}"

@@ -22,7 +22,9 @@ interface Order {
   currency: string;
   status: string;
   created_at: string;
+  canceled_at?: string;
   order_id?: string;
+  toss_order_id?: string;
 }
 
 interface ActivePlan {
@@ -76,7 +78,7 @@ export default function PaymentHistoryPage() {
     if (!token || isLoggedOut) {
       localStorage.removeItem("user");
       setUser(null);
-      await Promise.all([loadOrders(), loadActivePlan()]).catch(() => {});
+      await Promise.all([loadOrders(), loadActivePlan()]).catch(() => { });
       setLoading(false);
       return;
     }
@@ -109,7 +111,7 @@ export default function PaymentHistoryPage() {
       await syncUserDataWithCloud(currentUser.email || currentUser.id);
     }
 
-    await Promise.all([loadOrders(), loadActivePlan()]).catch(() => {});
+    await Promise.all([loadOrders(), loadActivePlan()]).catch(() => { });
     setLoading(false);
   };
 
@@ -130,14 +132,28 @@ export default function PaymentHistoryPage() {
     try {
       const stored = localStorage.getItem("heartsync_orders");
       if (stored) localItems = JSON.parse(stored);
-    } catch {}
+    } catch { }
 
     const orderMap = new Map<string, any>();
     for (const o of localItems) {
-      orderMap.set(String(o.order_id || o.id), o);
+      const key = String(o.order_id || o.toss_order_id || o.id);
+      orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id });
     }
     for (const o of serverItems) {
-      orderMap.set(String(o.order_id || o.id), o);
+      const key = String(o.toss_order_id || o.order_id || o.id);
+      const prev = orderMap.get(key);
+      if (!prev) {
+        orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id });
+      } else {
+        const keepCanceled = prev.status === "cancelled" || prev.status === "refunded";
+        orderMap.set(key, {
+          ...o,
+          ...prev,
+          order_id: prev.order_id || o.toss_order_id || o.order_id,
+          status: keepCanceled ? prev.status : prev.status || o.status,
+          canceled_at: prev.canceled_at || o.canceled_at,
+        });
+      }
     }
 
     const merged = Array.from(orderMap.values()).sort((a, b) => {
@@ -188,7 +204,7 @@ export default function PaymentHistoryPage() {
             };
           }
         }
-      } catch {}
+      } catch { }
     }
 
     if (planData) {
@@ -389,14 +405,18 @@ export default function PaymentHistoryPage() {
             </h2>
 
             {orders.map((order) => {
+              const isCanceled = order.status === "cancelled" || order.status === "refunded";
               const statusInfo = STATUS_MAP[order.status] || { label: order.status, color: "text-gray-600", bg: "bg-gray-100", icon: "📋" };
-              const gradient = PLAN_GRADIENT[order.plan_type] || "from-gray-400 to-gray-500";
+              const gradient = isCanceled
+                ? "from-gray-400 to-gray-500"
+                : PLAN_GRADIENT[order.plan_type] || "from-gray-400 to-gray-500";
               const planIcon = PLAN_ICON[order.plan_type] || "📦";
 
               return (
                 <div
-                  key={order.id}
-                  className="bg-white rounded-xl p-4 shadow-sm border border-gray-50 hover:shadow-md transition-all"
+                  key={order.order_id || order.id}
+                  className={`bg-white rounded-xl p-4 shadow-sm border transition-all ${isCanceled ? "border-red-100/80 opacity-80" : "border-gray-50 hover:shadow-md"
+                    }`}
                 >
                   {/* Top Row: Plan info + Status */}
                   <div className="flex items-start justify-between mb-3">
@@ -405,7 +425,9 @@ export default function PaymentHistoryPage() {
                         <span className="text-lg">{planIcon}</span>
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-gray-900">{order.plan_name || order.plan_type}</p>
+                        <p className={`text-sm font-bold ${isCanceled ? "text-gray-500 line-through" : "text-gray-900"}`}>
+                          {order.plan_name || order.plan_type}
+                        </p>
                         {order.is_upgrade && order.upgrade_credit && order.upgrade_credit > 0 ? (
                           <p className="text-[10px] font-bold text-emerald-600 mt-0.5">
                             🔄 기결제 {formatCurrency(order.upgrade_credit)} 차감 적용
@@ -413,8 +435,13 @@ export default function PaymentHistoryPage() {
                         ) : null}
                         <p className="text-[10px] text-gray-400 flex items-center gap-1 mt-0.5">
                           <Clock className="w-2.5 h-2.5" />
-                          {formatDateTime(order.created_at)}
+                          결제: {formatDateTime(order.created_at)}
                         </p>
+                        {isCanceled && order.canceled_at && (
+                          <p className="text-[10px] text-red-500 font-semibold mt-0.5">
+                            취소 완료: {formatDateTime(order.canceled_at)}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${statusInfo.bg} ${statusInfo.color}`}>
@@ -427,7 +454,7 @@ export default function PaymentHistoryPage() {
                   <div className="flex items-center justify-between pt-3 border-t border-gray-50">
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-400">
-                        {order.is_upgrade ? "차액 결제 금액" : "결제 금액"}
+                        {isCanceled ? "취소된 금액" : order.is_upgrade ? "차액 결제 금액" : "결제 금액"}
                       </span>
                       {order.order_id && (
                         <span className="text-[9px] text-gray-300 font-mono">
@@ -441,7 +468,7 @@ export default function PaymentHistoryPage() {
                           정가 {formatCurrency(order.original_amount)}
                         </span>
                       ) : null}
-                      <span className="text-base font-extrabold text-gray-900">
+                      <span className={`text-base font-extrabold ${isCanceled ? "text-gray-400 line-through" : "text-gray-900"}`}>
                         {formatCurrency(order.amount)}
                       </span>
                     </div>
