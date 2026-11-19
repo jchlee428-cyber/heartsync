@@ -248,6 +248,23 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
   }
+
+  .hs-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+
+  .hs-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+/* PWA Standalone App Mode Polish (does not affect normal web browser) */
+@media (display-mode: standalone) {
+  html,
+  body {
+    overscroll-behavior-y: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 /* Reduced motion preference */

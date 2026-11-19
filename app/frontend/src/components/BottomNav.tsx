@@ -53,7 +53,7 @@ export default function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-pink-100"
+      className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-lg border-t border-pink-100 hs-safe-bottom"
       role="navigation"
       aria-label="하단 메뉴"
     >
@@ -64,25 +64,22 @@ export default function BottomNav() {
             <button
               key={path}
               onClick={() => navigate(path)}
-              className={`relative flex flex-col items-center justify-center gap-1 py-1.5 px-3 min-w-[56px] rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-1 ${
-                isActive
+              className={`relative flex flex-col items-center justify-center gap-1 py-1.5 px-3 min-w-[56px] rounded-xl transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-500 focus-visible:ring-offset-1 ${isActive
                   ? "text-pink-600"
                   : "text-gray-500 hover:text-gray-800"
-              }`}
+                }`}
               aria-label={`${label}${path === "/my" && unreadCount > 0 ? ` (읽지 않은 알림 ${unreadCount}개)` : ""}`}
               aria-current={isActive ? "page" : undefined}
             >
               <Icon
-                className={`w-5 h-5 transition-all duration-300 ${
-                  isActive ? "scale-110" : ""
-                }`}
+                className={`w-5 h-5 transition-all duration-300 ${isActive ? "scale-110" : ""
+                  }`}
                 fill={isActive ? "currentColor" : "none"}
                 aria-hidden="true"
               />
               <span
-                className={`text-[12px] sm:text-[13px] leading-tight tracking-[-0.01em] transition-all ${
-                  isActive ? "font-semibold" : "font-medium"
-                }`}
+                className={`text-[12px] sm:text-[13px] leading-tight tracking-[-0.01em] transition-all ${isActive ? "font-semibold" : "font-medium"
+                  }`}
                 aria-hidden="true"
               >
                 {label}

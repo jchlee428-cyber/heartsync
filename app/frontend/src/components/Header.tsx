@@ -77,7 +77,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-pink-100 shadow-[0_2px_12px_rgba(244,63,94,0.04)]" role="banner">
+      <header className="fixed top-0 left-0 right-0 z-50 bg-white/85 backdrop-blur-md border-b border-pink-100 shadow-[0_2px_12px_rgba(244,63,94,0.04)] hs-safe-top" role="banner">
         <div className="max-w-lg mx-auto flex items-center justify-between px-4 sm:px-5 h-14 sm:h-16">
           <button
             onClick={() => navigate("/")}

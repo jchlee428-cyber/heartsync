@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 import { loadRuntimeConfig } from './lib/config.ts';
+import { registerPwa } from './lib/registerPwa.ts';
 
 // Load runtime configuration before rendering the app
 async function initializeApp() {
@@ -17,6 +18,9 @@ async function initializeApp() {
 
   // Render the app
   createRoot(document.getElementById('root')!).render(<App />);
+
+  // Register safe PWA service worker in production
+  registerPwa();
 }
 
 // Initialize the app
