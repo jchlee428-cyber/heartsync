@@ -7,7 +7,7 @@ import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
 import Footer from "@/components/Footer";
 import { getPlanTier, normalizeUpgradeOrders, PLAN_BASE_PRICES } from "@/lib/planUpgrade";
-import { syncUserDataWithCloud } from "@/lib/userSync";
+import { getCurrentUserKey, syncUserDataWithCloud } from "@/lib/userSync";
 
 const client = createClient();
 
@@ -78,7 +78,15 @@ export default function PaymentSuccessPage() {
         created_at: new Date().toISOString(),
         order_id: String(orderNum || `ORD-${Date.now().toString().slice(-6)}`),
       };
-      const existing = JSON.parse(localStorage.getItem("heartsync_orders") || "[]");
+      const currentOwner = getCurrentUserKey();
+      const prevOwner = String(localStorage.getItem("heartsync_orders_owner") || "").trim().toLowerCase();
+      const existing =
+        currentOwner && prevOwner === currentOwner
+          ? JSON.parse(localStorage.getItem("heartsync_orders") || "[]")
+          : [];
+      if (currentOwner) {
+        localStorage.setItem("heartsync_orders_owner", currentOwner);
+      }
       const combined = [order, ...existing.filter((o: any) => o.order_id !== order.order_id)];
       normalizeUpgradeOrders(combined);
 

@@ -330,27 +330,37 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
   for (const o of orders || []) {
     if (!o) continue;
     const key = String(o.order_id || o.toss_order_id || o.id || "");
-    if (key) orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id || key });
+    if (!key) continue;
+    // Drop simulation/mock test orders when Live Toss secret is configured
+    const isSimulated =
+      key.startsWith("SIM-") ||
+      key.startsWith("TEST-") ||
+      key.startsWith("ORD-") ||
+      String(o.payment_method || "").includes("시뮬레이션");
+    if (isSimulated) continue;
+    orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id || key });
   }
 
-  // Infer userId/userKey from existing local orders' Toss customerKey when browser is logged out
   let effectiveUserKey = String(userKey || "").trim();
   let effectiveUserId = String(userId || "").trim();
-  if ((!effectiveUserKey || effectiveUserKey === "anonymous_default") && !effectiveUserId) {
-    for (const oid of orderMap.keys()) {
-      const matchedTx = tossByOrderId.get(oid);
-      if (matchedTx?.customerKey) {
-        effectiveUserId = matchedTx.customerKey;
-        break;
-      }
-    }
-  }
+  const hasExplicitUser = Boolean(
+    (effectiveUserKey && effectiveUserKey !== "anonymous_default") || effectiveUserId
+  );
 
-  // 1) Update existing orders & check older non-simulated Toss orders via /v1/payments/orders/{orderId}
+  // 1) Update existing orders, enforce per-account Toss ownership, and verify older orders via /v1/payments/orders/{orderId}
   const olderChecks = [];
-  for (const [oid, ord] of orderMap.entries()) {
+  for (const [oid, ord] of Array.from(orderMap.entries())) {
     const tossInfo = tossByOrderId.get(oid);
     if (tossInfo) {
+      // Remove any order whose Toss customerKey belongs to a different account/provider
+      if (
+        hasExplicitUser &&
+        tossInfo.customerKey &&
+        !doesCustomerKeyMatchUser(tossInfo.customerKey, effectiveUserKey, effectiveUserId)
+      ) {
+        orderMap.delete(oid);
+        continue;
+      }
       if (tossInfo.isCanceled) {
         ord.status = "cancelled";
         ord.canceled_at = tossInfo.canceledAt || ord.canceled_at || new Date().toISOString();
@@ -361,13 +371,11 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
         ord.receipt_url = tossInfo.receiptUrl;
       }
     } else {
-      const isRealTossId =
-        (oid.startsWith("HS-") || oid.startsWith("order_")) &&
-        !oid.startsWith("SIM-") &&
-        !oid.startsWith("TEST-") &&
-        !String(ord.payment_method || "").includes("시뮬레이션");
-      if (isRealTossId && ord.status === "paid") {
+      const isRealTossId = oid.startsWith("HS-") || oid.startsWith("order_");
+      if (isRealTossId) {
         olderChecks.push(oid);
+      } else {
+        orderMap.delete(oid);
       }
     }
   }
@@ -375,18 +383,28 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
   syncDiag.orderChecks = olderChecks.length;
 
   await Promise.all(
-    olderChecks.slice(0, 10).map(async (oid) => {
+    olderChecks.slice(0, 15).map(async (oid) => {
       try {
         const resp = await fetch(`${TOSS_API_BASE}/payments/orders/${encodeURIComponent(oid)}`, {
           method: "GET",
           headers,
         });
+        // If Toss Live API returns 404, this was a pre-launch public test key order -> remove it
+        if (resp.status === 404) {
+          orderMap.delete(oid);
+          return;
+        }
         if (!resp.ok) return;
         const data = await resp.json();
         const target = orderMap.get(oid);
         if (!target) return;
-        if (!effectiveUserId && data?.customerKey) {
-          effectiveUserId = String(data.customerKey);
+        if (
+          hasExplicitUser &&
+          data?.customerKey &&
+          !doesCustomerKeyMatchUser(data.customerKey, effectiveUserKey, effectiveUserId)
+        ) {
+          orderMap.delete(oid);
+          return;
         }
         if (data?.status === "CANCELED" || data?.status === "ABORTED" || data?.status === "EXPIRED") {
           target.status = "cancelled";
@@ -435,7 +453,7 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
   return { orders: finalOrders, syncDiag };
 }
 
-function deriveActivePlanFromOrders(orders, fallbackActivePlan) {
+function deriveActivePlanFromOrders(orders, fallbackActivePlan, isLiveVerified = false) {
   const now = Date.now();
   let bestOrder = null;
   let bestTier = 0;
@@ -462,8 +480,8 @@ function deriveActivePlanFromOrders(orders, fallbackActivePlan) {
   }
 
   if (!bestOrder) {
-    // If all orders were cancelled or expired, clear activePlan
-    if (Array.isArray(orders) && orders.length > 0) {
+    // When live Toss verification is active or all orders were cancelled/expired, clear activePlan
+    if (isLiveVerified || (Array.isArray(orders) && orders.length > 0)) {
       return null;
     }
     return fallbackActivePlan || null;
@@ -503,7 +521,11 @@ export default async function handler(req, res) {
       req.query?.userId || ""
     );
     bucket.orders = reconciledOrders;
-    bucket.activePlan = deriveActivePlanFromOrders(bucket.orders, bucket.activePlan);
+    bucket.activePlan = deriveActivePlanFromOrders(
+      bucket.orders,
+      bucket.activePlan,
+      syncDiag.hasSecret
+    );
     saveStore();
 
     return res.status(200).json({
@@ -532,7 +554,8 @@ export default async function handler(req, res) {
         );
         const reconciledPlan = deriveActivePlanFromOrders(
           reconciledOrders,
-          body.activePlan || null
+          body.activePlan || null,
+          syncDiag.hasSecret
         );
         return res.status(200).json({
           success: true,
@@ -590,7 +613,8 @@ export default async function handler(req, res) {
       // Recompute activePlan from verified paid orders so canceled plans immediately deactivate
       bucket.activePlan = deriveActivePlanFromOrders(
         bucket.orders,
-        body.activePlan || bucket.activePlan
+        body.activePlan || bucket.activePlan,
+        syncDiag.hasSecret
       );
 
       bucket.updatedAt = new Date().toISOString();

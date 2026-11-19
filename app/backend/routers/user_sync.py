@@ -148,28 +148,58 @@ async def _reconcile_with_toss(orders: List[Dict[str, Any]], user_key: str, user
         order_map: Dict[str, Dict[str, Any]] = {}
         for o in orders:
             key = str(o.get("order_id") or o.get("toss_order_id") or o.get("id") or "")
-            if key:
-                copy_o = dict(o)
-                copy_o["order_id"] = key
-                order_map[key] = copy_o
+            if not key:
+                continue
+            if key.startswith(("SIM-", "TEST-", "ORD-")) or "시뮬레이션" in str(o.get("payment_method") or ""):
+                continue
+            copy_o = dict(o)
+            copy_o["order_id"] = key
+            order_map[key] = copy_o
 
         effective_uk = (user_key or "").strip()
         effective_uid = (user_id or "").strip()
-        if (not effective_uk or effective_uk == "anonymous_default") and not effective_uid:
-            for oid in order_map.keys():
-                matched_tx = toss_map.get(oid)
-                if matched_tx and matched_tx.get("customer_key"):
-                    effective_uid = matched_tx["customer_key"]
-                    break
+        has_explicit_user = bool((effective_uk and effective_uk != "anonymous_default") or effective_uid)
 
+        older_checks: List[str] = []
         for oid, ord_obj in list(order_map.items()):
             t_info = toss_map.get(oid)
             if t_info:
+                if has_explicit_user and t_info["customer_key"] and not _matches_user(
+                    t_info["customer_key"], effective_uk, effective_uid
+                ):
+                    order_map.pop(oid, None)
+                    continue
                 if t_info["is_canceled"]:
                     ord_obj["status"] = "cancelled"
                     ord_obj["canceled_at"] = t_info["canceled_at"]
                 elif t_info["is_done"] and not _is_terminal_cancel(ord_obj.get("status")):
                     ord_obj["status"] = "paid"
+            elif oid.startswith(("HS-", "order_")):
+                older_checks.append(oid)
+            else:
+                order_map.pop(oid, None)
+
+        for oid in older_checks[:15]:
+            try:
+                resp = await client.get(f"{TOSS_API_BASE}/payments/orders/{oid}", headers=headers)
+                if resp.status_code == 404:
+                    order_map.pop(oid, None)
+                    continue
+                if resp.status_code != 200:
+                    continue
+                data = resp.json()
+                ck = str(data.get("customerKey") or "")
+                if has_explicit_user and ck and not _matches_user(ck, effective_uk, effective_uid):
+                    order_map.pop(oid, None)
+                    continue
+                target = order_map.get(oid)
+                if target and data.get("status") in ("CANCELED", "ABORTED", "EXPIRED"):
+                    target["status"] = "cancelled"
+                    cancels = data.get("cancels") or []
+                    if cancels:
+                        target["canceled_at"] = cancels[-1].get("canceledAt")
+            except Exception:
+                pass
 
         for oid, t_info in toss_map.items():
             if oid in order_map:
@@ -223,7 +253,9 @@ def _derive_active_plan(orders: List[Dict[str, Any]], fallback_plan: Any) -> Any
             best = (o, meta, exp_ts)
 
     if not best:
-        return None if orders else fallback_plan
+        live_secret = os.environ.get("TOSS_SECRET_KEY", "").strip()
+        is_live = bool(live_secret and not live_secret.startswith("test_gsk_docs_"))
+        return None if (is_live or orders) else fallback_plan
 
     ord_obj, meta, exp_ts = best
     return {

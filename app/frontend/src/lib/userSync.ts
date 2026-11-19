@@ -223,7 +223,7 @@ export async function syncUserDataWithCloud(
     const owner = String(localStorage.getItem("heartsync_orders_owner") || "")
       .trim()
       .toLowerCase();
-    if (owner && owner !== normalizedKey) {
+    if (!owner || owner !== normalizedKey) {
       localOrdersForUser = [];
       localPlanForUser = null;
     }
