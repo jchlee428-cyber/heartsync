@@ -52,16 +52,20 @@ export default function LoginPage() {
       let token: string | null = null;
       let user: any = null;
 
-      const isTargetAdmin =
-        fromUrl.startsWith("/admin") ||
-        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.kr" ||
-        (extraData?.email || email || "").trim().toLowerCase() === "admin@heartsync.co.kr";
+      const rawTypedEmail = (extraData?.email || email || "").trim().toLowerCase();
+      if (
+        rawTypedEmail === "admin@heartsync.kr" ||
+        rawTypedEmail === "admin@heartsync.co.kr"
+      ) {
+        navigate("/admin");
+        return;
+      }
 
       const deterministic = getDeterministicUserIdentity(
         provider,
         extraData?.email || (provider === "email" ? email : undefined),
         extraData?.name || (provider === "email" ? name : undefined),
-        isTargetAdmin
+        false
       );
 
       // 1. Attempt backend social-login with deterministic email so PC & Mobile match
@@ -95,8 +99,6 @@ export default function LoginPage() {
           role: deterministic.role,
           last_login: new Date().toISOString(),
         };
-      } else if (isTargetAdmin && user) {
-        user = { ...user, role: "admin" };
       }
 
       localStorage.setItem("token", token);

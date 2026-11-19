@@ -12,10 +12,8 @@ import {
   AlertCircle,
   CheckCircle,
 } from 'lucide-react';
-import { createClient } from '@metagptx/web-sdk';
+import { adminApi } from '@/lib/adminApi';
 import { toast } from 'sonner';
-
-const client = createClient();
 
 interface EnvVariable {
   key: string;
@@ -54,63 +52,15 @@ export default function AdminSettingsPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await client.apiCall.invoke({
-        url: '/api/v1/admin/settings',
-        method: 'GET',
-        data: {},
-      });
-      if (res.data) {
-        setConfig(res.data as EnvConfig);
-        return;
+      const data = await adminApi.getSettings();
+      if (data) {
+        setConfig(data as EnvConfig);
       }
-    } catch (err) {
-      console.warn('[AdminSettingsPage] Backend settings fallback active:', err);
+    } catch (err: any) {
+      setError(err?.message || '설정 정보를 불러오지 못했습니다.');
     } finally {
       setLoading(false);
     }
-
-    // Fallback operational config when backend is sleeping or running in serverless mode
-    setConfig({
-      backend_vars: {
-        AI_CHAT_PROXY: {
-          key: 'AI_CHAT_PROXY',
-          value: '/api/ai-chat (Vercel Serverless Proxy)',
-          description: '서버리스 AI 코치 프록시 엔드포인트 (API 키 클라이언트 비노출)',
-        },
-        AI_MODEL_PRIMARY: {
-          key: 'AI_MODEL_PRIMARY',
-          value: 'gpt-4o-mini',
-          description: '기본 AI 코칭 모델',
-        },
-        PROMPT_VERSION: {
-          key: 'PROMPT_VERSION',
-          value: 'v2.0-step4-9principles',
-          description: 'STEP 4~7 9대 원칙 및 9대 질문 유형 전략 프롬프트',
-        },
-        PRIVACY_CONVERSATION_POLICY: {
-          key: 'PRIVACY_CONVERSATION_POLICY',
-          value: 'NO_PERSONAL_CONVERSATION_RAW_TEXT_COLLECTED',
-          description: '개인 대화 원문 비수집·비열람 보호 정책 활성화',
-        },
-        DIAGNOSIS_COUNTER_BASE: {
-          key: 'DIAGNOSIS_COUNTER_BASE',
-          value: '10000',
-          description: '누적 진단 완료 카운터 시작 기준값',
-        },
-      },
-      frontend_vars: {
-        VITE_SITE_DOMAIN: {
-          key: 'VITE_SITE_DOMAIN',
-          value: 'https://www.heartsync.kr',
-          description: '프로덕션 서비스 도메인',
-        },
-        VITE_SAFETY_GUARDRAILS: {
-          key: 'VITE_SAFETY_GUARDRAILS',
-          value: 'ENABLED (6 Crisis Categories + 112/1366/109)',
-          description: 'STEP 6 위기 감지 및 긴급 보호기관 안내 가드레일',
-        },
-      },
-    });
   };
 
   const toggleShowValue = (key: string) => {
@@ -142,16 +92,16 @@ export default function AdminSettingsPage() {
     if (!editingVar) return;
     setSaving(true);
     try {
-      await client.apiCall.invoke({
-        url: `/api/v1/admin/settings/${editingVar.type}/${editingVar.key}`,
-        method: 'PUT',
-        data: { value: editingVar.value },
-      });
+      const res = await adminApi.upsertSetting(editingVar.type, editingVar.key, editingVar.value);
+      if (res?.config) {
+        setConfig(res.config as EnvConfig);
+      } else {
+        await loadConfig();
+      }
       toast.success(`${editingVar.key} 설정이 업데이트되었습니다.`);
       setEditingVar(null);
-      await loadConfig();
-    } catch {
-      toast.error('설정 업데이트에 실패했습니다.');
+    } catch (err: any) {
+      toast.error(err?.message || '설정 업데이트에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -164,18 +114,18 @@ export default function AdminSettingsPage() {
     }
     setSaving(true);
     try {
-      await client.apiCall.invoke({
-        url: `/api/v1/admin/settings/${newVarType}/${newVarKey.trim()}`,
-        method: 'POST',
-        data: { value: newVarValue.trim() },
-      });
+      const res = await adminApi.upsertSetting(newVarType, newVarKey.trim(), newVarValue.trim());
+      if (res?.config) {
+        setConfig(res.config as EnvConfig);
+      } else {
+        await loadConfig();
+      }
       toast.success(`${newVarKey} 설정이 추가되었습니다.`);
       setNewVarKey('');
       setNewVarValue('');
       setShowAddForm(false);
-      await loadConfig();
-    } catch {
-      toast.error('설정 추가에 실패했습니다.');
+    } catch (err: any) {
+      toast.error(err?.message || '설정 추가에 실패했습니다.');
     } finally {
       setSaving(false);
     }
@@ -184,15 +134,15 @@ export default function AdminSettingsPage() {
   const handleDelete = async (key: string, type: 'backend' | 'frontend') => {
     if (!confirm(`정말 "${key}" 설정을 삭제하시겠습니까?`)) return;
     try {
-      await client.apiCall.invoke({
-        url: `/api/v1/admin/settings/${type}/${key}`,
-        method: 'DELETE',
-        data: {},
-      });
+      const res = await adminApi.deleteSetting(type, key);
+      if (res?.config) {
+        setConfig(res.config as EnvConfig);
+      } else {
+        await loadConfig();
+      }
       toast.success(`${key} 설정이 삭제되었습니다.`);
-      await loadConfig();
-    } catch {
-      toast.error('설정 삭제에 실패했습니다.');
+    } catch (err: any) {
+      toast.error(err?.message || '설정 삭제에 실패했습니다.');
     }
   };
 

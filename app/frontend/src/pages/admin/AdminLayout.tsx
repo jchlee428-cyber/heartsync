@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { createClient } from '@metagptx/web-sdk';
-import { adminApi } from '@/lib/adminApi';
+import { adminApi, clearAdminToken } from '@/lib/adminApi';
+import { clearUserSessionOnLogout } from '@/lib/userSync';
 import { toast } from 'sonner';
 import {
   LayoutDashboard,
@@ -48,51 +49,19 @@ export default function AdminLayout() {
   const checkAuth = async () => {
     try {
       setAuthError(null);
-      const token = localStorage.getItem('token');
-      const localUserRaw = localStorage.getItem('user');
-
-      // 1. Check localStorage user first for instant session restoration
-      let localUser: any = null;
-      if (localUserRaw) {
-        try {
-          localUser = JSON.parse(localUserRaw);
-        } catch {
-          localUser = null;
-        }
-      }
-
-      if (!token && !localUser) {
-        setLoading(false);
-        return;
-      }
-
-      // 2. Try backend /api/v1/auth/me via adminApi (which also falls back to localStorage user)
-      const userData = await adminApi.getCurrentUser();
-
-      if (userData) {
-        const effectiveRole =
-          localUser?.role === 'admin' ? 'admin' : userData.role;
-        const mergedUser = { ...userData, role: effectiveRole };
-        setUser(mergedUser);
-        setIsAdmin(effectiveRole === 'admin');
-      } else if (localUser) {
-        setUser(localUser);
-        setIsAdmin(localUser.role === 'admin');
+      const verifiedAdmin = await adminApi.checkAdminSession();
+      if (verifiedAdmin && verifiedAdmin.role === 'admin') {
+        setUser(verifiedAdmin);
+        setIsAdmin(true);
       } else {
-        // Fallback: try SDK auth.me()
-        try {
-          const sdkRes = await client.auth.me();
-          if (sdkRes?.data) {
-            setUser(sdkRes.data);
-            setIsAdmin(sdkRes.data.role === 'admin');
-          }
-        } catch {
-          // ignore
-        }
+        setUser(null);
+        setIsAdmin(false);
       }
     } catch (err: any) {
       console.error('[AdminLayout] Auth check error:', err);
       setAuthError(err?.message || 'Unknown error');
+      setUser(null);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
@@ -100,63 +69,41 @@ export default function AdminLayout() {
 
   const handleDirectAdminLogin = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
+    if (!adminPasscode.trim()) {
+      setAuthError('관리자 비밀번호를 입력해주세요.');
+      toast.error('관리자 비밀번호를 입력해주세요.');
+      return;
+    }
+
     setLoggingIn(true);
     setAuthError(null);
 
     const targetEmail = (adminEmail || 'admin@heartsync.kr').trim().toLowerCase();
 
     try {
-      let token = `hs_admin_session_${Date.now()}`;
-      let adminUser: any = {
-        id: 'admin_heartsync_root',
-        email: targetEmail,
-        name: 'HeartSync 총괄 관리자',
-        role: 'admin',
-        last_login: new Date().toISOString(),
-      };
+      const result = await adminApi.verifyAdminLogin(targetEmail, adminPasscode);
+      const adminUser = result.user;
 
-      // Also attempt backend social-login so JWT token is issued when backend is awake
-      try {
-        const res = await fetch('/api/v1/auth/social-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: 'email',
-            email: targetEmail,
-            name: 'HeartSync 총괄 관리자',
-          }),
-        });
-        if (res.ok) {
-          const data = await res.json();
-          if (data.token) token = data.token;
-          if (data.user) {
-            adminUser = {
-              ...data.user,
-              role: 'admin',
-            };
-          }
-        }
-      } catch {
-        // Use local admin session seamlessly if backend is sleeping
-      }
-
-      localStorage.setItem('token', token);
+      localStorage.setItem('token', result.adminToken);
       localStorage.setItem('user', JSON.stringify(adminUser));
       localStorage.setItem('isLougOutManual', 'false');
 
+      setAdminPasscode('');
       setUser(adminUser);
       setIsAdmin(true);
-      toast.success('🛡️ 관리자 모드로 로그인되었습니다.');
+      toast.success('🛡️ 관리자 인증이 완료되었습니다.');
     } catch (err: any) {
-      toast.error(err?.message || '관리자 로그인 중 오류가 발생했습니다.');
+      const msg = err?.message || '관리자 비밀번호가 올바르지 않습니다.';
+      setAuthError(msg);
+      toast.error(msg);
     } finally {
       setLoggingIn(false);
     }
   };
 
-  const handleAdminLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+  const handleAdminLogout = async () => {
+    clearAdminToken();
+    await clearUserSessionOnLogout();
     setUser(null);
     setIsAdmin(false);
     toast.info('관리자 세션에서 로그아웃되었습니다.');
@@ -216,7 +163,7 @@ export default function AdminLayout() {
 
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1">
-                관리자 인증코드 / 비밀번호 (선택)
+                관리자 비밀번호 <span className="text-red-500">*</span>
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -224,7 +171,9 @@ export default function AdminLayout() {
                   type="password"
                   value={adminPasscode}
                   onChange={(e) => setAdminPasscode(e.target.value)}
-                  placeholder="관리자 비밀번호 입력 (또는 원클릭 접속)"
+                  placeholder="관리자 비밀번호를 입력하세요"
+                  required
+                  autoComplete="current-password"
                   className="w-full pl-10 pr-3.5 py-2.5 text-sm rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -232,7 +181,7 @@ export default function AdminLayout() {
 
             <button
               type="submit"
-              disabled={loggingIn}
+              disabled={loggingIn || !adminPasscode.trim()}
               className="w-full py-3.5 bg-indigo-600 text-white font-bold text-sm rounded-xl hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-md shadow-indigo-100 disabled:opacity-50"
             >
               {loggingIn ? (
@@ -243,7 +192,7 @@ export default function AdminLayout() {
               ) : (
                 <>
                   <LogIn className="w-4 h-4" />
-                  관리자 대시보드 즉시 접속
+                  관리자 인증 후 접속
                 </>
               )}
             </button>

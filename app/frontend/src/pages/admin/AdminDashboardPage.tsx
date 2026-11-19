@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@metagptx/web-sdk";
 import { toast } from "sonner";
+import { getAdminToken } from "@/lib/adminApi";
 import {
   loadLocalTelemetry,
   calculateEstimatedApiCost,
@@ -57,6 +58,7 @@ interface DashboardMetrics {
   // 4. 유료 결제 현황
   totalOrders: number;
   paidOrdersCount: number;
+  canceledOrdersCount: number;
   totalRevenue: number;
   planBreakdown: {
     reportOnly: { count: number; revenue: number };
@@ -143,15 +145,30 @@ export default function AdminDashboardPage() {
         gatherLocalOrdersAndDiagnoses();
       const counterSnap = getDiagnosisCounterSnapshot();
 
-      // 1. Fetch serverless /api/admin-metrics
+      // 1. Fetch authenticated serverless /api/admin-metrics (includes live Toss transactions & synced users)
       let serverTel: any = null;
       let serverlessDiagCompleted = 0;
+      let liveTossOrders: any[] = [];
+      let serverlessUsers: any[] = [];
+      let serverlessDiagnoses: any[] = [];
+      let serverlessAuditLogs: AuditLogItem[] = [];
+      let aiConfig: any = null;
+
       try {
-        const res = await fetch("/api/admin-metrics", { method: "GET" });
+        const admToken = getAdminToken();
+        const res = await fetch("/api/admin-metrics", {
+          method: "GET",
+          headers: admToken ? { "x-admin-token": admToken } : {},
+        });
         if (res.ok) {
           const data = await res.json();
           serverTel = data?.telemetry || null;
           serverlessDiagCompleted = Number(data?.serverlessDiagnosisCompleted) || 0;
+          liveTossOrders = Array.isArray(data?.liveOrders) ? data.liveOrders : [];
+          serverlessUsers = Array.isArray(data?.registeredUsers) ? data.registeredUsers : [];
+          serverlessDiagnoses = Array.isArray(data?.syncedDiagnoses) ? data.syncedDiagnoses : [];
+          serverlessAuditLogs = Array.isArray(data?.auditLogs) ? data.auditLogs : [];
+          aiConfig = data?.aiConfig || null;
         }
       } catch {
         // Ignore
@@ -161,8 +178,8 @@ export default function AdminDashboardPage() {
       let dbDiagnoses: any[] = [];
       let dbOrders: any[] = [];
       let dbSessionsTotal = 0;
-      let dbUsersTotal = 0;
       let dbUsersList: any[] = [];
+      let dbAuditLogs: AuditLogItem[] = [];
 
       try {
         const [diagRes, ordRes, chatRes, usrRes, auditRes] = await Promise.allSettled([
@@ -204,25 +221,47 @@ export default function AdminDashboardPage() {
         }
         if (usrRes.status === "fulfilled") {
           dbUsersList = usrRes.value?.data?.items || usrRes.value?.data?.users || [];
-          dbUsersTotal = Number(usrRes.value?.data?.total) || dbUsersList.length;
         }
         if (auditRes.status === "fulfilled") {
-          setAuditLogs(auditRes.value?.data?.items || []);
+          dbAuditLogs = auditRes.value?.data?.items || [];
         }
       } catch {
-        // Backend offline — seamlessly use serverless + local aggregation
+        // Backend offline — seamlessly use serverless aggregation
       }
 
-      // Merge Orders (deduplicate by id/order_id)
+      setAuditLogs([...serverlessAuditLogs, ...dbAuditLogs].slice(0, 10));
+
+      // Merge Orders (Toss live orders take authoritative precedence, including cancellations)
       const orderMap = new Map<string, any>();
-      [...dbOrders, ...localOrders].forEach((o, i) => {
-        if (!o) return;
-        const key = String(o.order_id || o.toss_order_id || o.id || `ord_${i}`);
-        if (!orderMap.has(key)) orderMap.set(key, o);
-      });
-      const allOrders = Array.from(orderMap.values());
+      for (const o of [...liveTossOrders, ...dbOrders]) {
+        if (!o) continue;
+        const key = String(o.order_id || o.toss_order_id || o.id || "");
+        if (!key || key.startsWith("SIM-") || key.startsWith("TEST-")) continue;
+        const prev = orderMap.get(key);
+        if (!prev) {
+          orderMap.set(key, o);
+        } else {
+          const isCanceled =
+            prev.status === "cancelled" ||
+            prev.status === "refunded" ||
+            o.status === "cancelled" ||
+            o.status === "refunded";
+          orderMap.set(key, {
+            ...o,
+            ...prev,
+            status: isCanceled ? "cancelled" : prev.status || o.status,
+          });
+        }
+      }
+
+      const allOrders = Array.from(orderMap.values()).sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
       const paidOrders = allOrders.filter(
-        (o) => o.status === "paid" || o.status === "completed" || o.status === "DONE" || !o.status
+        (o) => o.status === "paid" || o.status === "completed" || o.status === "DONE"
+      );
+      const canceledOrders = allOrders.filter(
+        (o) => o.status === "cancelled" || o.status === "refunded"
       );
 
       const planBreakdown = {
@@ -237,13 +276,31 @@ export default function AdminDashboardPage() {
         const amt = Number(o.amount) || 0;
         totalRevenue += amt;
         const pName = String(o.plan_name || o.plan_type || "");
-        if (pName.includes("차액") || pName.includes("업그레이드") || amt === 9100 || amt === 20000 || amt === 29100) {
+        const pType = String(o.plan_type || "");
+        if (
+          o.is_upgrade ||
+          pName.includes("차액") ||
+          pName.includes("업그레이드") ||
+          amt === 9100 ||
+          amt === 20000 ||
+          amt === 29100
+        ) {
           planBreakdown.upgradeDiff.count += 1;
           planBreakdown.upgradeDiff.revenue += amt;
-        } else if (amt >= 45000 || pName.includes("49") || pName.includes("풀패키지") || pName.includes("커플")) {
+        } else if (
+          pType === "couple_premium" ||
+          pType === "all_care_pass" ||
+          amt >= 45000 ||
+          pName.includes("올케어")
+        ) {
           planBreakdown.coupleFull.count += 1;
           planBreakdown.coupleFull.revenue += amt;
-        } else if (amt >= 25000 || pName.includes("코칭")) {
+        } else if (
+          pType === "monthly_subscription" ||
+          pType === "couple_dual" ||
+          amt >= 25000 ||
+          pName.includes("듀얼")
+        ) {
           planBreakdown.coaching.count += 1;
           planBreakdown.coaching.revenue += amt;
         } else {
@@ -254,19 +311,21 @@ export default function AdminDashboardPage() {
 
       // Merge Diagnoses
       const diagMap = new Map<string, any>();
-      [...dbDiagnoses, ...localDiagnoses].forEach((d, i) => {
+      [...serverlessDiagnoses, ...dbDiagnoses, ...localDiagnoses].forEach((d, i) => {
         if (!d) return;
         const key = String(d.id || `diag_${i}`);
         if (!diagMap.has(key)) diagMap.set(key, d);
       });
-      const allFullDiags = Array.from(diagMap.values());
+      const allFullDiags = Array.from(diagMap.values()).sort(
+        (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+      );
       const fullDiagCount = Math.max(
         allFullDiags.length,
         counterSnap.completedSinceLaunch,
         serverlessDiagCompleted
       );
       const miniCount = localMiniCheckins.length;
-      const totalCompletedDiag = Math.max(fullDiagCount + miniCount, 1);
+      const totalCompletedDiag = fullDiagCount + miniCount;
 
       const scoreList = [...allFullDiags, ...localMiniCheckins]
         .map((d) => Number(d.total_score) || 0)
@@ -274,35 +333,52 @@ export default function AdminDashboardPage() {
       const avgDiagnosisScore =
         scoreList.length > 0
           ? Math.round(scoreList.reduce((a, b) => a + b, 0) / scoreList.length)
-          : 174;
+          : 0;
 
-      // Users & Signups
-      const hasCurrentLocalUser = Boolean(localStorage.getItem("user") || localStorage.getItem("token"));
-      const totalUsers = Math.max(dbUsersTotal, hasCurrentLocalUser ? 1 : 0, paidOrders.length, fullDiagCount);
-      const newUsers7d = Math.max(1, Math.ceil(totalUsers * 0.35));
-      const newUsers30d = totalUsers;
-      const activeUsers = Math.max(1, Math.ceil(totalUsers * 0.8));
+      // Real Users & Signups (strictly from registered/synced accounts — never inflated by diagnosis count)
+      const userEmailMap = new Map<string, any>();
+      for (const u of [...serverlessUsers, ...dbUsersList]) {
+        if (u && u.email && u.email !== "admin@heartsync.kr") {
+          userEmailMap.set(String(u.email).toLowerCase(), u);
+        }
+      }
+      const memberList = Array.from(userEmailMap.values());
+      const nowMs = Date.now();
+      const totalUsers = memberList.length;
+      const newUsers7d = memberList.filter(
+        (u) => u.created_at && nowMs - new Date(u.created_at).getTime() <= 7 * 86400000
+      ).length;
+      const newUsers30d = memberList.filter(
+        (u) => u.created_at && nowMs - new Date(u.created_at).getTime() <= 30 * 86400000
+      ).length;
+      const activeUsers = memberList.filter(
+        (u) => u.last_login && nowMs - new Date(u.last_login).getTime() <= 30 * 86400000
+      ).length;
 
       // AI API & Coach Usage
-      const liveLlmCalls = Math.max(localTel.aiCalls, Number(serverTel?.aiCalls) || 0, 1);
+      const liveLlmCalls = Math.max(localTel.aiCalls, Number(serverTel?.aiCalls) || 0);
       const fallbackCalls = Math.max(localTel.fallbackCalls, Number(serverTel?.fallbackCalls) || 0);
       const totalAiTurns = liveLlmCalls + fallbackCalls;
-      const totalChatSessions = Math.max(dbSessionsTotal, localSessionCount, Math.ceil(totalAiTurns / 3), 1);
-
-      const promptTokens = Math.max(
-        localTel.promptTokens,
-        Number(serverTel?.promptTokens) || 0,
-        liveLlmCalls * 460
+      const totalChatSessions = Math.max(
+        dbSessionsTotal,
+        localSessionCount,
+        totalAiTurns > 0 ? Math.max(1, Math.ceil(totalAiTurns / 3)) : 0
       );
+
+      const promptTokens = Math.max(localTel.promptTokens, Number(serverTel?.promptTokens) || 0);
       const completionTokens = Math.max(
         localTel.completionTokens,
-        Number(serverTel?.completionTokens) || 0,
-        liveLlmCalls * 250
+        Number(serverTel?.completionTokens) || 0
       );
       const totalTokens = promptTokens + completionTokens;
       const totalLat = Math.max(localTel.totalLatencyMs, Number(serverTel?.totalLatencyMs) || 0);
-      const avgLatencyMs = liveLlmCalls > 0 && totalLat > 0 ? Math.round(totalLat / liveLlmCalls) : 780;
+      const avgLatencyMs = liveLlmCalls > 0 && totalLat > 0 ? Math.round(totalLat / liveLlmCalls) : 0;
       const costEst = calculateEstimatedApiCost(promptTokens, completionTokens);
+
+      // Active AI Model Label
+      const primaryMdl = aiConfig?.primaryModel || "gemini-4-hydrogen";
+      const backupMdl = aiConfig?.backupModel || "gpt-4o-mini";
+      const activeModelLabel = `${primaryMdl} (백업: ${backupMdl})`;
 
       // Intent Breakdown
       const mergedIntents: Record<string, number> = { ...localTel.intentCounts };
@@ -320,11 +396,26 @@ export default function AdminDashboardPage() {
         })
         .sort((a, b) => b.count - a.count);
 
-      // Prompt Version Evaluation (v1.0 vs v2.0)
-      const v1Ratings = localTel.promptRatings["v1.0"] || { count: 14, ratingSum: 58, positiveTagCount: 11 };
-      const v2Ratings = localTel.promptRatings["v2.0"] || { count: 8, ratingSum: 39, positiveTagCount: 8 };
-      const v1Calls = Math.max(localTel.promptVersionCalls["v1.0"] || 18, v1Ratings.count);
-      const v2Calls = Math.max(localTel.promptVersionCalls["v2.0"] || 0, liveLlmCalls, v2Ratings.count);
+      // Prompt Version Evaluation (merge serverless + local ratings)
+      const srvV1 = serverTel?.promptRatings?.["v1.0"];
+      const srvV2 = serverTel?.promptRatings?.["v2.0"];
+      const locV1 = localTel.promptRatings["v1.0"] || { count: 14, ratingSum: 58, positiveTagCount: 11 };
+      const locV2 = localTel.promptRatings["v2.0"] || { count: 8, ratingSum: 39, positiveTagCount: 8 };
+
+      const v1Ratings = srvV1 && srvV1.count >= locV1.count ? srvV1 : locV1;
+      const v2Ratings = srvV2 && srvV2.count >= locV2.count ? srvV2 : locV2;
+
+      const v1Calls = Math.max(
+        localTel.promptVersionCalls["v1.0"] || 18,
+        Number(serverTel?.promptVersionCalls?.["v1.0"]) || 0,
+        v1Ratings.count
+      );
+      const v2Calls = Math.max(
+        localTel.promptVersionCalls["v2.0"] || 0,
+        Number(serverTel?.promptVersionCalls?.["v2.0"]) || 0,
+        liveLlmCalls,
+        v2Ratings.count
+      );
 
       const promptVersions = [
         {
@@ -353,15 +444,17 @@ export default function AdminDashboardPage() {
         if (e && e.id) errMap.set(String(e.id), e);
       });
       const errors = Array.from(errMap.values()).slice(0, 15);
-      const nowMs = Date.now();
       const errorCount24h = errors.filter(
         (e) => nowMs - new Date(e.timestamp).getTime() <= 86400000
       ).length;
 
-      // Conversion Rate
-      const baseFreeUsers = Math.max(totalUsers, totalCompletedDiag, 1);
+      // Conversion Rate (distinct paying customers / funnel base)
+      const uniquePaidBuyers = new Set(
+        paidOrders.map((o) => o.user_email || o.customer_key || o.order_id)
+      ).size;
+      const funnelBase = Math.max(totalUsers, totalCompletedDiag, uniquePaidBuyers, 1);
       const conversionRatePct = Number(
-        Math.min(100, (paidOrders.length / baseFreeUsers) * 100).toFixed(1)
+        Math.min(100, (uniquePaidBuyers / funnelBase) * 100).toFixed(1)
       );
       const arpuKrw = paidOrders.length > 0 ? Math.round(totalRevenue / paidOrders.length) : 0;
 
@@ -372,7 +465,7 @@ export default function AdminDashboardPage() {
         activeUsers,
         publicTotalDiagnoses: counterSnap.publicTotalCount,
         completedDiagnosesCount: totalCompletedDiag,
-        fullDiagnosisCount: Math.max(fullDiagCount, 1),
+        fullDiagnosisCount: fullDiagCount,
         miniCheckinCount: miniCount,
         avgDiagnosisScore,
         totalChatSessions,
@@ -382,6 +475,7 @@ export default function AdminDashboardPage() {
         intentBreakdown,
         totalOrders: allOrders.length,
         paidOrdersCount: paidOrders.length,
+        canceledOrdersCount: canceledOrders.length,
         totalRevenue,
         planBreakdown,
         promptTokens,
@@ -390,10 +484,10 @@ export default function AdminDashboardPage() {
         avgLatencyMs,
         estimatedCostUsd: costEst.usd,
         estimatedCostKrw: costEst.krw,
-        activeModel: "gpt-4o-mini (Vercel Serverless)",
+        activeModel: activeModelLabel,
         errors,
         errorCount24h,
-        freeUsersCount: Math.max(0, baseFreeUsers - paidOrders.length),
+        freeUsersCount: Math.max(0, totalUsers - uniquePaidBuyers),
         conversionRatePct,
         arpuKrw,
         promptVersions,
@@ -477,7 +571,9 @@ export default function AdminDashboardPage() {
           icon={FileText}
           label="2. 진단 완료 건수"
           value={`${metrics.publicTotalDiagnoses.toLocaleString()}건`}
-          subText={`정밀진단 ${metrics.fullDiagnosisCount}건 · 체크인 ${metrics.miniCheckinCount}건 (평균 ${metrics.avgDiagnosisScore}점)`}
+          subText={`정밀진단 ${metrics.fullDiagnosisCount}건 · 체크인 ${metrics.miniCheckinCount}건${
+            metrics.avgDiagnosisScore > 0 ? ` (평균 ${metrics.avgDiagnosisScore}점)` : ""
+          }`}
           color="emerald"
         />
         <StatCard
@@ -491,7 +587,7 @@ export default function AdminDashboardPage() {
           icon={CreditCard}
           label="4. 유료 결제 현황"
           value={formatCurrency(metrics.totalRevenue)}
-          subText={`결제 완료 ${metrics.paidOrdersCount}건 (전체 주문 ${metrics.totalOrders}건)`}
+          subText={`결제 완료 ${metrics.paidOrdersCount}건 · 취소 ${metrics.canceledOrdersCount}건 (전체 ${metrics.totalOrders}건)`}
           color="pink"
         />
       </div>
@@ -561,7 +657,7 @@ export default function AdminDashboardPage() {
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div className="p-3 rounded-xl bg-gray-50 border border-gray-100">
-              <p className="text-gray-500 font-medium">심층 상세 리포트 (₩19,900)</p>
+              <p className="text-gray-500 font-medium">개인 정밀 분석 1회권 (₩19,900)</p>
               <p className="text-base font-extrabold text-gray-900 mt-1">
                 {metrics.planBreakdown.reportOnly.count}건
               </p>
@@ -570,7 +666,7 @@ export default function AdminDashboardPage() {
               </p>
             </div>
             <div className="p-3 rounded-xl bg-pink-50/50 border border-pink-100">
-              <p className="text-pink-700 font-medium">리포트 + AI 코칭 (₩29,000)</p>
+              <p className="text-pink-700 font-medium">커플 듀얼 매칭 패키지 (₩29,000)</p>
               <p className="text-base font-extrabold text-gray-900 mt-1">
                 {metrics.planBreakdown.coaching.count}건
               </p>
@@ -579,7 +675,7 @@ export default function AdminDashboardPage() {
               </p>
             </div>
             <div className="p-3 rounded-xl bg-purple-50/50 border border-purple-100">
-              <p className="text-purple-700 font-medium">커플 풀패키지 (₩49,000)</p>
+              <p className="text-purple-700 font-medium">30일 관계 개선 올케어 패스 (₩49,000)</p>
               <p className="text-base font-extrabold text-gray-900 mt-1">
                 {metrics.planBreakdown.coupleFull.count}건
               </p>
@@ -768,25 +864,46 @@ export default function AdminDashboardPage() {
               <p className="px-5 py-8 text-center text-xs text-gray-400">결제 내역이 없습니다</p>
             ) : (
               metrics.recentOrders.map((order: any, idx: number) => {
+                const isCanceled = order.status === "cancelled" || order.status === "refunded";
                 const statusInfo = STATUS_MAP[order.status] || STATUS_MAP.paid;
                 return (
                   <div
-                    key={order.id || idx}
-                    className="px-5 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors"
+                    key={order.order_id || order.id || idx}
+                    className={`px-5 py-3.5 flex items-center justify-between hover:bg-gray-50/50 transition-colors ${
+                      isCanceled ? "opacity-75" : ""
+                    }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p
+                        className={`text-sm font-medium truncate ${
+                          isCanceled ? "text-gray-400 line-through" : "text-gray-900"
+                        }`}
+                      >
                         {order.plan_name || order.plan_type || "유료 플랜"}
                       </p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
                         <span className="text-xs text-gray-400 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           {formatDateTime(order.created_at)}
                         </span>
+                        {isCanceled && order.canceled_at && (
+                          <span className="text-[11px] text-red-500 font-medium">
+                            취소: {formatDateTime(order.canceled_at)}
+                          </span>
+                        )}
+                        {order.order_id && (
+                          <span className="text-[10px] font-mono text-gray-300">
+                            #{String(order.order_id).slice(-8)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2.5 flex-shrink-0">
-                      <span className="text-sm font-bold text-gray-900">
+                      <span
+                        className={`text-sm font-bold ${
+                          isCanceled ? "text-gray-400 line-through" : "text-gray-900"
+                        }`}
+                      >
                         {formatCurrency(order.amount || 0)}
                       </span>
                       <span
