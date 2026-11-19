@@ -279,10 +279,10 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
           if (Array.isArray(arr)) txEvents.push(...arr);
         } else {
           const errTxt = await resp.text().catch(() => "");
-          syncDiag.errors.push(`tx_${resp.status}:${errTxt.slice(0, 80)}`);
+          syncDiag.errors.push(`tx_${resp.status}:${errTxt.slice(0, 160)}`);
         }
       } catch (err) {
-        syncDiag.errors.push(`tx_exc:${String(err?.message || err).slice(0, 80)}`);
+        syncDiag.errors.push(`tx_exc:${String(err?.message || err).slice(0, 120)}`);
       }
     })
   );
