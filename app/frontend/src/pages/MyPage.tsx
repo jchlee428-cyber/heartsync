@@ -203,10 +203,12 @@ export default function MyPage() {
         }
       } else {
         setUser(null);
+        await syncUserDataWithCloud().catch(() => {});
         await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
       }
     } catch {
       setUser(null);
+      await syncUserDataWithCloud().catch(() => {});
       await Promise.all([loadDiagnoses(), loadOrders(), loadActivePlan()]).catch(() => {});
     } finally {
       setLoading(false);

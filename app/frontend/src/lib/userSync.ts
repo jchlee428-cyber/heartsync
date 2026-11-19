@@ -207,6 +207,44 @@ export async function syncUserDataWithCloud(
   const local = gatherLocalUserData();
   const userKey = explicitUserKey || getCurrentUserKey();
   if (!userKey) {
+    // Even if logged out, reconcile any cached localStorage orders against Toss live status
+    if (local.orders.length > 0) {
+      try {
+        const res = await fetch("/api/user-sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            reconcileOnly: true,
+            orders: local.orders,
+            activePlan: local.activePlan,
+          }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const syncedOrders = Array.isArray(data.orders) ? data.orders : local.orders;
+          const syncedPlan = "activePlan" in data ? data.activePlan : local.activePlan || null;
+          try {
+            localStorage.setItem("heartsync_orders", JSON.stringify(syncedOrders));
+            if (syncedPlan) {
+              localStorage.setItem("heartsync_active_plan", JSON.stringify(syncedPlan));
+            } else if ("activePlan" in data && data.activePlan === null) {
+              localStorage.removeItem("heartsync_active_plan");
+              localStorage.removeItem("heartsync_active_test_plan");
+              localStorage.removeItem("heartsync_test_paid");
+            }
+          } catch {
+            // ignore storage errors
+          }
+          return {
+            diagnoses: local.diagnoses,
+            orders: syncedOrders,
+            activePlan: syncedPlan,
+          };
+        }
+      } catch {
+        // ignore network errors
+      }
+    }
     return {
       diagnoses: local.diagnoses,
       orders: local.orders,

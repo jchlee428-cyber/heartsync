@@ -78,6 +78,7 @@ export default function PaymentHistoryPage() {
     if (!token || isLoggedOut) {
       localStorage.removeItem("user");
       setUser(null);
+      await syncUserDataWithCloud().catch(() => { });
       await Promise.all([loadOrders(), loadActivePlan()]).catch(() => { });
       setLoading(false);
       return;

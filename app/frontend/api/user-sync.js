@@ -111,6 +111,7 @@ function mergeOrders(existingList, incomingList) {
     if (!prev) {
       map.set(key, ord);
     } else {
+      // Never let a stale "paid" record overwrite a "cancelled" / "refunded" status
       const resolvedStatus = isTerminalCancelStatus(prev.status)
         ? prev.status
         : isTerminalCancelStatus(ord.status)
@@ -192,6 +193,7 @@ function doesCustomerKeyMatchUser(customerKey, userKey, userId) {
     return true;
   }
 
+  // Match deterministic social provider identities (e.g. kakao_member@heartsync.kr <-> usr_kakao_sync / kakao_*)
   for (const prov of ["kakao", "naver", "google"]) {
     if (
       uk === `${prov}_member@heartsync.kr` ||
@@ -205,6 +207,7 @@ function doesCustomerKeyMatchUser(customerKey, userKey, userId) {
     }
   }
 
+  // Match deterministic email hash customerKey
   if (uk.includes("@")) {
     const h = simpleHashHex(uk);
     if (ck.endsWith(`_${h}`)) return true;
@@ -213,15 +216,41 @@ function doesCustomerKeyMatchUser(customerKey, userKey, userId) {
   return false;
 }
 
+function resolveTossSecretKey() {
+  const raw =
+    process.env.TOSS_SECRET_KEY ||
+    process.env.VITE_TOSS_SECRET_KEY ||
+    process.env.TOSS_LIVE_SECRET_KEY ||
+    "";
+  return String(raw)
+    .trim()
+    .replace(/^['"]|['"]$/g, "");
+}
+
+/**
+ * Reconciles user orders directly against Toss Payments REST API:
+ * 1. Marks canceled orders (`CANCELED`) as `status: "cancelled"`
+ * 2. Imports missing live orders (`DONE`) belonging to the same user across devices/environments
+ */
 async function reconcileOrdersWithToss(orders, userKey, userId) {
-  const secretKey = String(process.env.TOSS_SECRET_KEY || "").trim();
-  if (!secretKey || secretKey.startsWith("test_gsk_docs_")) {
-    return orders;
+  const secretKey = resolveTossSecretKey();
+  const syncDiag = {
+    hasSecret: Boolean(secretKey && !secretKey.startsWith("test_gsk_docs_")),
+    secretPrefix: secretKey ? secretKey.slice(0, 8) : "none",
+    txCount: 0,
+    txStatus: [],
+    orderChecks: 0,
+    errors: [],
+  };
+
+  if (!syncDiag.hasSecret) {
+    return { orders, syncDiag };
   }
 
   const authHeader = `Basic ${Buffer.from(`${secretKey}:`).toString("base64")}`;
   const headers = { Authorization: authHeader, Accept: "application/json" };
 
+  // Fetch recent 14 days of Toss transactions in two 7-day windows (plain fetch for Vercel runtime compatibility)
   const now = new Date();
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
   const fourteenDaysAgo = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
@@ -243,18 +272,24 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
         const resp = await fetch(`${TOSS_API_BASE}/transactions?${qs.toString()}`, {
           method: "GET",
           headers,
-          signal: AbortSignal.timeout(5000),
         });
+        syncDiag.txStatus.push(resp.status);
         if (resp.ok) {
           const arr = await resp.json();
           if (Array.isArray(arr)) txEvents.push(...arr);
+        } else {
+          const errTxt = await resp.text().catch(() => "");
+          syncDiag.errors.push(`tx_${resp.status}:${errTxt.slice(0, 80)}`);
         }
-      } catch {
-        // Ignore network timeout on auxiliary window
+      } catch (err) {
+        syncDiag.errors.push(`tx_exc:${String(err?.message || err).slice(0, 80)}`);
       }
     })
   );
 
+  syncDiag.txCount = txEvents.length;
+
+  // Aggregate transaction events by orderId
   const tossByOrderId = new Map();
   for (const tx of txEvents) {
     if (!tx || !tx.orderId) continue;
@@ -294,10 +329,24 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
   const orderMap = new Map();
   for (const o of orders || []) {
     if (!o) continue;
-    const key = String(o.order_id || o.id || "");
-    if (key) orderMap.set(key, { ...o });
+    const key = String(o.order_id || o.toss_order_id || o.id || "");
+    if (key) orderMap.set(key, { ...o, order_id: o.order_id || o.toss_order_id || key });
   }
 
+  // Infer userId/userKey from existing local orders' Toss customerKey when browser is logged out
+  let effectiveUserKey = String(userKey || "").trim();
+  let effectiveUserId = String(userId || "").trim();
+  if ((!effectiveUserKey || effectiveUserKey === "anonymous_default") && !effectiveUserId) {
+    for (const oid of orderMap.keys()) {
+      const matchedTx = tossByOrderId.get(oid);
+      if (matchedTx?.customerKey) {
+        effectiveUserId = matchedTx.customerKey;
+        break;
+      }
+    }
+  }
+
+  // 1) Update existing orders & check older non-simulated Toss orders via /v1/payments/orders/{orderId}
   const olderChecks = [];
   for (const [oid, ord] of orderMap.entries()) {
     const tossInfo = tossByOrderId.get(oid);
@@ -323,18 +372,22 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
     }
   }
 
+  syncDiag.orderChecks = olderChecks.length;
+
   await Promise.all(
     olderChecks.slice(0, 10).map(async (oid) => {
       try {
         const resp = await fetch(`${TOSS_API_BASE}/payments/orders/${encodeURIComponent(oid)}`, {
           method: "GET",
           headers,
-          signal: AbortSignal.timeout(4000),
         });
         if (!resp.ok) return;
         const data = await resp.json();
         const target = orderMap.get(oid);
         if (!target) return;
+        if (!effectiveUserId && data?.customerKey) {
+          effectiveUserId = String(data.customerKey);
+        }
         if (data?.status === "CANCELED" || data?.status === "ABORTED" || data?.status === "EXPIRED") {
           target.status = "cancelled";
           const lastCancel = Array.isArray(data.cancels) && data.cancels.length > 0
@@ -342,16 +395,17 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
             : null;
           target.canceled_at = lastCancel || target.canceled_at || new Date().toISOString();
         }
-      } catch {
-        // Ignore lookup error
+      } catch (err) {
+        syncDiag.errors.push(`ord_exc:${String(err?.message || err).slice(0, 60)}`);
       }
     })
   );
 
+  // 2) Import any missing live Toss orders belonging to this user
   for (const [oid, tossInfo] of tossByOrderId.entries()) {
     if (orderMap.has(oid)) continue;
     if (!tossInfo.isDone && !tossInfo.isCanceled) continue;
-    if (!doesCustomerKeyMatchUser(tossInfo.customerKey, userKey, userId)) continue;
+    if (!doesCustomerKeyMatchUser(tossInfo.customerKey, effectiveUserKey, effectiveUserId)) continue;
 
     const meta = inferPlanFromOrder(oid, tossInfo.amount);
     const createdAt = tossInfo.approvedAt || tossInfo.canceledAt || new Date().toISOString();
@@ -374,9 +428,11 @@ async function reconcileOrdersWithToss(orders, userKey, userId) {
     });
   }
 
-  return Array.from(orderMap.values())
+  const finalOrders = Array.from(orderMap.values())
     .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
     .slice(0, 100);
+
+  return { orders: finalOrders, syncDiag };
 }
 
 function deriveActivePlanFromOrders(orders, fallbackActivePlan) {
@@ -406,6 +462,7 @@ function deriveActivePlanFromOrders(orders, fallbackActivePlan) {
   }
 
   if (!bestOrder) {
+    // If all orders were cancelled or expired, clear activePlan
     if (Array.isArray(orders) && orders.length > 0) {
       return null;
     }
@@ -440,7 +497,12 @@ export default async function handler(req, res) {
 
     const userKey = normalizeUserKey(req.query?.userKey);
     const bucket = ensureUserBucket(userKey);
-    bucket.orders = await reconcileOrdersWithToss(bucket.orders, userKey, req.query?.userId || "");
+    const { orders: reconciledOrders, syncDiag } = await reconcileOrdersWithToss(
+      bucket.orders,
+      userKey,
+      req.query?.userId || ""
+    );
+    bucket.orders = reconciledOrders;
     bucket.activePlan = deriveActivePlanFromOrders(bucket.orders, bucket.activePlan);
     saveStore();
 
@@ -450,6 +512,7 @@ export default async function handler(req, res) {
       orders: bucket.orders || [],
       activePlan: bucket.activePlan,
       deletedDiagnosisIds: bucket.deletedDiagnosisIds || [],
+      syncDiag,
       updatedAt: bucket.updatedAt,
     });
   }
@@ -458,6 +521,29 @@ export default async function handler(req, res) {
     try {
       const body =
         typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+
+      // Logged-out localStorage order reconciliation (does not pollute shared anonymous bucket)
+      if (body.reconcileOnly === true || !String(body.userKey || "").trim()) {
+        const incomingOrders = Array.isArray(body.orders) ? body.orders : [];
+        const { orders: reconciledOrders, syncDiag } = await reconcileOrdersWithToss(
+          incomingOrders,
+          "",
+          String(body.userId || "").trim()
+        );
+        const reconciledPlan = deriveActivePlanFromOrders(
+          reconciledOrders,
+          body.activePlan || null
+        );
+        return res.status(200).json({
+          success: true,
+          reconcileOnly: true,
+          orders: reconciledOrders,
+          activePlan: reconciledPlan,
+          syncDiag,
+          updatedAt: new Date().toISOString(),
+        });
+      }
+
       const userKey = normalizeUserKey(body.userKey);
       const userId = String(body.userId || "").trim();
       const bucket = ensureUserBucket(userKey);
@@ -493,7 +579,15 @@ export default async function handler(req, res) {
       const incomingOrders = Array.isArray(body.orders) ? body.orders : [];
       const mergedOrders = mergeOrders(bucket.orders, incomingOrders);
 
-      bucket.orders = await reconcileOrdersWithToss(mergedOrders, userKey, userId);
+      // Reconcile against live Toss Payments API (marks cancellations + imports missing live payments)
+      const { orders: reconciledOrders, syncDiag } = await reconcileOrdersWithToss(
+        mergedOrders,
+        userKey,
+        userId
+      );
+      bucket.orders = reconciledOrders;
+
+      // Recompute activePlan from verified paid orders so canceled plans immediately deactivate
       bucket.activePlan = deriveActivePlanFromOrders(
         bucket.orders,
         body.activePlan || bucket.activePlan
@@ -509,6 +603,7 @@ export default async function handler(req, res) {
         orders: bucket.orders,
         activePlan: bucket.activePlan,
         deletedDiagnosisIds: bucket.deletedDiagnosisIds,
+        syncDiag,
         updatedAt: bucket.updatedAt,
       });
     } catch (err) {

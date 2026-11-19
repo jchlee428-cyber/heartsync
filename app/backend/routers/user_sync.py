@@ -153,6 +153,15 @@ async def _reconcile_with_toss(orders: List[Dict[str, Any]], user_key: str, user
                 copy_o["order_id"] = key
                 order_map[key] = copy_o
 
+        effective_uk = (user_key or "").strip()
+        effective_uid = (user_id or "").strip()
+        if (not effective_uk or effective_uk == "anonymous_default") and not effective_uid:
+            for oid in order_map.keys():
+                matched_tx = toss_map.get(oid)
+                if matched_tx and matched_tx.get("customer_key"):
+                    effective_uid = matched_tx["customer_key"]
+                    break
+
         for oid, ord_obj in list(order_map.items()):
             t_info = toss_map.get(oid)
             if t_info:
@@ -167,7 +176,7 @@ async def _reconcile_with_toss(orders: List[Dict[str, Any]], user_key: str, user
                 continue
             if not (t_info["is_done"] or t_info["is_canceled"]):
                 continue
-            if not _matches_user(t_info["customer_key"], user_key, user_id):
+            if not _matches_user(t_info["customer_key"], effective_uk, effective_uid):
                 continue
             info = _infer_plan(oid, t_info["amount"])
             created_at = t_info["approved_at"] or t_info["canceled_at"] or datetime.now(KST).isoformat()
@@ -232,6 +241,7 @@ def _derive_active_plan(orders: List[Dict[str, Any]], fallback_plan: Any) -> Any
 class UserSyncPayload(BaseModel):
     userKey: Optional[str] = ""
     userId: Optional[str] = ""
+    reconcileOnly: Optional[bool] = False
     diagnoses: Optional[List[Dict[str, Any]]] = None
     orders: Optional[List[Dict[str, Any]]] = None
     activePlan: Optional[Dict[str, Any]] = None
@@ -264,6 +274,16 @@ async def get_user_sync(
 
 @router.post("/api/user-sync")
 async def post_user_sync(body: UserSyncPayload):
+    if body.reconcileOnly or not (body.userKey or "").strip():
+        reconciled_orders = await _reconcile_with_toss(body.orders or [], "", (body.userId or "").strip())
+        reconciled_plan = _derive_active_plan(reconciled_orders, body.activePlan)
+        return {
+            "success": True,
+            "reconcileOnly": True,
+            "orders": reconciled_orders,
+            "activePlan": reconciled_plan,
+        }
+
     uk = (body.userKey or "anonymous_default").strip().lower()
     uid = (body.userId or "").strip()
     bucket = _MEMORY_STORE["users"].setdefault(
