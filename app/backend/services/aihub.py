@@ -24,66 +24,103 @@ class InvalidImageInputError(ValueError):
 class AIHubService:
     """AI Hub service class that wraps LLM calls based on the OpenAI SDK with intelligent simulation fallback."""
 
+    @staticmethod
+    def _is_gemini_key(key: str) -> bool:
+        return bool(key) and (key.startswith("AIza") or key.startswith("AQ."))
+
     def __init__(self):
-        raw_key = (
-            getattr(settings, "app_ai_key", "")
-            or getattr(settings, "openai_api_key", "")
-            or getattr(settings, "gemini_api_key", "")
-            or getattr(settings, "google_api_key", "")
-            or getattr(settings, "deepseek_api_key", "")
-            or ""
+        self.providers: list[dict] = []
+        seen_keys: set[str] = set()
+
+        app_ai_key = (getattr(settings, "app_ai_key", "") or "").strip()
+
+        # 1st Priority: Google Gemini (gemini-4-hydrogen)
+        gemini_candidates = [
+            (getattr(settings, "gemini_api_key", "") or "").strip(),
+            (getattr(settings, "google_api_key", "") or "").strip(),
+            app_ai_key if self._is_gemini_key(app_ai_key) else "",
+        ]
+        gemini_model = (
+            getattr(settings, "gemini_model", "")
+            or getattr(settings, "app_ai_model", "")
+            or "gemini-4-hydrogen"
         ).strip()
 
-        raw_base = (getattr(settings, "app_ai_base_url", "") or "").strip()
-        if not raw_base or raw_base == "https://api.openai.com/v1":
-            if (
-                getattr(settings, "gemini_api_key", "")
-                or getattr(settings, "google_api_key", "")
-                or raw_key.startswith("AIza")
-            ):
-                raw_base = "https://generativelanguage.googleapis.com/v1beta/openai"
-            elif getattr(settings, "deepseek_api_key", ""):
-                raw_base = "https://api.deepseek.com/v1"
-            else:
-                raw_base = "https://api.openai.com/v1"
-
-        self.resolved_api_key = raw_key
-        self.resolved_base_url = raw_base.rstrip("/")
-        self.is_mock = (
-            not self.resolved_api_key
-            or self.resolved_api_key.startswith("mock-")
-            or not self.resolved_base_url
-        )
-        if not self.is_mock:
+        for g_key in gemini_candidates:
+            if not g_key or g_key.startswith("mock-") or g_key in seen_keys:
+                continue
             try:
-                self.client = AsyncOpenAI(
-                    api_key=self.resolved_api_key,
-                    base_url=self.resolved_base_url,
+                g_base = "https://generativelanguage.googleapis.com/v1beta/openai"
+                g_client = AsyncOpenAI(api_key=g_key, base_url=g_base)
+                seen_keys.add(g_key)
+                self.providers.append(
+                    {"name": "gemini", "client": g_client, "base_url": g_base, "default_model": gemini_model}
                 )
             except Exception as e:
-                logger.warning(f"AsyncOpenAI client init notice: {e}")
-                self.client = None
-                self.is_mock = True
+                logger.warning(f"Gemini AsyncOpenAI client init notice: {e}")
+
+        # 2nd Priority (Automatic Backup): OpenAI (gpt-4o-mini)
+        openai_candidates = [
+            (getattr(settings, "openai_api_key", "") or "").strip(),
+            app_ai_key if (app_ai_key and not self._is_gemini_key(app_ai_key)) else "",
+        ]
+        openai_model = (getattr(settings, "openai_model", "") or "gpt-4o-mini").strip()
+
+        for o_key in openai_candidates:
+            if not o_key or o_key.startswith("mock-") or o_key in seen_keys:
+                continue
+            try:
+                raw_base = (getattr(settings, "app_ai_base_url", "") or "https://api.openai.com/v1").strip().rstrip("/")
+                o_base = raw_base if "generativelanguage" not in raw_base else "https://api.openai.com/v1"
+                o_client = AsyncOpenAI(api_key=o_key, base_url=o_base)
+                seen_keys.add(o_key)
+                self.providers.append(
+                    {"name": "openai", "client": o_client, "base_url": o_base, "default_model": openai_model}
+                )
+            except Exception as e:
+                logger.warning(f"OpenAI AsyncOpenAI client init notice: {e}")
+
+        # 3rd Priority: DeepSeek
+        ds_key = (getattr(settings, "deepseek_api_key", "") or "").strip()
+        if ds_key and not ds_key.startswith("mock-") and ds_key not in seen_keys:
+            try:
+                ds_base = "https://api.deepseek.com/v1"
+                ds_client = AsyncOpenAI(api_key=ds_key, base_url=ds_base)
+                seen_keys.add(ds_key)
+                self.providers.append(
+                    {"name": "deepseek", "client": ds_client, "base_url": ds_base, "default_model": "deepseek-chat"}
+                )
+            except Exception as e:
+                logger.warning(f"DeepSeek AsyncOpenAI client init notice: {e}")
+
+        if self.providers:
+            primary = self.providers[0]
+            self.client = primary["client"]
+            self.resolved_base_url = primary["base_url"]
+            self.resolved_api_key = "configured"
+            self.is_mock = False
         else:
             self.client = None
+            self.resolved_base_url = ""
+            self.resolved_api_key = ""
+            self.is_mock = True
 
-    def _resolve_model(self, requested_model: str) -> str:
+    def _resolve_model(self, requested_model: str, base_url_override: str = "", default_model: str = "") -> str:
         """
-        Resolve the target LLM model name based on environment configuration and base_url
-        to prevent endpoint-model mismatch (e.g. requesting 'deepseek-v3.2' from api.openai.com).
+        Resolve the target LLM model name based on provider base_url to prevent endpoint-model mismatch.
         """
         configured_model = (getattr(settings, "app_ai_model", "") or "").strip()
         if configured_model:
             return configured_model
 
-        base_url = (self.resolved_base_url or "").lower()
-        model = (requested_model or "gpt-4o-mini").strip()
+        base_url = (base_url_override or self.resolved_base_url or "").lower()
+        model = (requested_model or default_model or "gemini-4-hydrogen").strip()
 
         if "generativelanguage.googleapis.com" in base_url:
-            return "gemini-2.5-flash"
-        if "api.openai.com" in base_url and model.startswith("deepseek"):
-            return "gpt-4o-mini"
-        if "api.deepseek.com" in base_url and model == "deepseek-v3.2":
+            return default_model or (getattr(settings, "gemini_model", "") or "gemini-4-hydrogen").strip()
+        if "api.openai.com" in base_url and (model.startswith("deepseek") or model.startswith("gemini")):
+            return default_model or (getattr(settings, "openai_model", "") or "gpt-4o-mini").strip()
+        if "api.deepseek.com" in base_url and (model == "deepseek-v3.2" or model.startswith("gemini")):
             return "deepseek-chat"
         return model
 
@@ -427,8 +464,8 @@ class AIHubService:
         return self._build_counseling_chat_fallback(request, user_msg)
 
     async def gentxt(self, request: GenTxtRequest) -> GenTxtResponse:
-        """Generate Text API (non-streaming), supports text and image input."""
-        if self.is_mock or not self.client:
+        """Generate Text API (non-streaming) with Gemini primary -> OpenAI automatic backup -> simulation fallback."""
+        if self.is_mock or not self.providers:
             logger.info("Using simulated AI text generation (mock or unconfigured API key)")
             content = self._build_fallback_text(request)
             return GenTxtResponse(
@@ -437,45 +474,50 @@ class AIHubService:
                 usage={"prompt_tokens": 120, "completion_tokens": 800, "total_tokens": 920},
             )
 
-        try:
-            messages = [self._convert_message(msg) for msg in request.messages]
-            resolved_model = self._resolve_model(request.model)
+        messages = [self._convert_message(msg) for msg in request.messages]
 
-            response = await self.client.chat.completions.create(
-                model=resolved_model,
-                messages=messages,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
-                stream=False,
-            )
+        for idx, prov in enumerate(self.providers):
+            resolved_model = self._resolve_model(request.model, prov["base_url"], prov["default_model"])
+            try:
+                response = await prov["client"].chat.completions.create(
+                    model=resolved_model,
+                    messages=messages,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    stream=False,
+                )
 
-            content = response.choices[0].message.content or ""
-            usage = None
-            if response.usage:
-                usage = {
-                    "prompt_tokens": response.usage.prompt_tokens,
-                    "completion_tokens": response.usage.completion_tokens,
-                    "total_tokens": response.usage.total_tokens,
-                }
+                content = response.choices[0].message.content or ""
+                if not content.strip():
+                    raise RuntimeError(f"Empty response from {resolved_model}")
 
-            return GenTxtResponse(
-                content=content,
-                model=resolved_model,
-                usage=usage,
-            )
+                usage = None
+                if response.usage:
+                    usage = {
+                        "prompt_tokens": response.usage.prompt_tokens,
+                        "completion_tokens": response.usage.completion_tokens,
+                        "total_tokens": response.usage.total_tokens,
+                    }
 
-        except Exception as e:
-            logger.warning(f"Live OpenAI gentxt call failed ({e}), falling back to intelligent simulation...")
-            content = self._build_fallback_text(request)
-            return GenTxtResponse(
-                content=content,
-                model=request.model,
-                usage={"prompt_tokens": 120, "completion_tokens": 800, "total_tokens": 920},
-            )
+                return GenTxtResponse(
+                    content=content,
+                    model=resolved_model,
+                    usage=usage,
+                )
+            except Exception as e:
+                next_note = "trying backup provider..." if idx + 1 < len(self.providers) else "falling back to simulation..."
+                logger.warning(f"AI provider {prov['name']} ({resolved_model}) failed ({e}), {next_note}")
+
+        content = self._build_fallback_text(request)
+        return GenTxtResponse(
+            content=content,
+            model=request.model,
+            usage={"prompt_tokens": 120, "completion_tokens": 800, "total_tokens": 920},
+        )
 
     async def gentxt_stream(self, request: GenTxtRequest) -> AsyncGenerator[str, None]:
-        """Generate Text API (streaming), supports text and image input."""
-        if self.is_mock or not self.client:
+        """Generate Text API (streaming) with Gemini primary -> OpenAI automatic backup -> simulation fallback."""
+        if self.is_mock or not self.providers:
             logger.info("Using simulated AI stream generation (mock or unconfigured API key)")
             fallback_text = self._build_fallback_text(request)
             chunks = [fallback_text[i:i + 14] for i in range(0, len(fallback_text), 14)]
@@ -484,29 +526,38 @@ class AIHubService:
                 await asyncio.sleep(0.012)
             return
 
-        try:
-            messages = [self._convert_message(msg) for msg in request.messages]
-            resolved_model = self._resolve_model(request.model)
+        messages = [self._convert_message(msg) for msg in request.messages]
 
-            stream = await self.client.chat.completions.create(
-                model=resolved_model,
-                messages=messages,
-                temperature=request.temperature,
-                max_tokens=request.max_tokens,
-                stream=True,
-            )
+        for idx, prov in enumerate(self.providers):
+            resolved_model = self._resolve_model(request.model, prov["base_url"], prov["default_model"])
+            emitted_any = False
+            try:
+                stream = await prov["client"].chat.completions.create(
+                    model=resolved_model,
+                    messages=messages,
+                    temperature=request.temperature,
+                    max_tokens=request.max_tokens,
+                    stream=True,
+                )
 
-            async for chunk in stream:
-                if chunk.choices and chunk.choices[0].delta.content:
-                    yield chunk.choices[0].delta.content
+                async for chunk in stream:
+                    if chunk.choices and chunk.choices[0].delta.content:
+                        emitted_any = True
+                        yield chunk.choices[0].delta.content
 
-        except Exception as e:
-            logger.warning(f"Live OpenAI gentxt_stream failed ({e}), falling back to intelligent simulation...")
-            fallback_text = self._build_fallback_text(request)
-            chunks = [fallback_text[i:i + 14] for i in range(0, len(fallback_text), 14)]
-            for chunk in chunks:
-                yield chunk
-                await asyncio.sleep(0.012)
+                if emitted_any:
+                    return
+            except Exception as e:
+                next_note = "trying backup provider..." if idx + 1 < len(self.providers) else "falling back to simulation..."
+                logger.warning(f"AI stream provider {prov['name']} ({resolved_model}) failed ({e}), {next_note}")
+                if emitted_any:
+                    return
+
+        fallback_text = self._build_fallback_text(request)
+        chunks = [fallback_text[i:i + 14] for i in range(0, len(fallback_text), 14)]
+        for chunk in chunks:
+            yield chunk
+            await asyncio.sleep(0.012)
 
     @staticmethod
     def _extract_image_ref(item: object) -> str:

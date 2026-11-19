@@ -44,7 +44,7 @@ function recordServerlessAiTelemetry(entry) {
       state.intentCounts = state.intentCounts || {};
       state.intentCounts[intent] = (state.intentCounts[intent] || 0) + 1;
 
-      const mdl = entry.model || "gpt-4o-mini";
+      const mdl = entry.model || "gemini-4-hydrogen";
       state.modelCalls = state.modelCalls || {};
       state.modelCalls[mdl] = (state.modelCalls[mdl] || 0) + 1;
     }
@@ -55,23 +55,82 @@ function recordServerlessAiTelemetry(entry) {
   }
 }
 
+function isGeminiKeyFormat(key) {
+  return Boolean(key) && (key.startsWith("AIza") || key.startsWith("AQ."));
+}
+
+/**
+ * Builds ordered AI provider failover chain:
+ * 1st Priority: Google Gemini (`gemini-4-hydrogen` or GEMINI_MODEL)
+ * 2nd Priority: OpenAI Automatic Backup (`gpt-4o-mini` or OPENAI_MODEL)
+ * 3rd Priority: DeepSeek (`deepseek-chat`)
+ */
+function buildProviderChain() {
+  const providers = [];
+  const seenKeys = new Set();
+
+  const appAiKey = String(process.env.APP_AI_KEY || "").trim();
+
+  const geminiCandidates = [
+    process.env.GEMINI_API_KEY,
+    process.env.GOOGLE_API_KEY,
+    process.env.VITE_GEMINI_API_KEY,
+    isGeminiKeyFormat(appAiKey) ? appAiKey : "",
+  ]
+    .map((v) => String(v || "").trim())
+    .filter((k) => k && !k.startsWith("mock-"));
+
+  for (const gemKey of geminiCandidates) {
+    if (seenKeys.has(gemKey)) continue;
+    seenKeys.add(gemKey);
+    providers.push({
+      provider: "gemini",
+      apiKey: gemKey,
+      endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      model: String(process.env.GEMINI_MODEL || process.env.APP_AI_MODEL || "gemini-4-hydrogen").trim(),
+    });
+  }
+
+  const openaiCandidates = [
+    process.env.OPENAI_API_KEY,
+    process.env.VITE_OPENAI_API_KEY,
+    !isGeminiKeyFormat(appAiKey) ? appAiKey : "",
+  ]
+    .map((v) => String(v || "").trim())
+    .filter((k) => k && !k.startsWith("mock-"));
+
+  for (const oaKey of openaiCandidates) {
+    if (seenKeys.has(oaKey)) continue;
+    seenKeys.add(oaKey);
+    providers.push({
+      provider: "openai",
+      apiKey: oaKey,
+      endpoint: "https://api.openai.com/v1/chat/completions",
+      model: String(process.env.OPENAI_MODEL || "gpt-4o-mini").trim(),
+    });
+  }
+
+  const deepseekKey = String(process.env.DEEPSEEK_API_KEY || "").trim();
+  if (deepseekKey && !deepseekKey.startsWith("mock-") && !seenKeys.has(deepseekKey)) {
+    seenKeys.add(deepseekKey);
+    providers.push({
+      provider: "deepseek",
+      apiKey: deepseekKey,
+      endpoint: "https://api.deepseek.com/v1/chat/completions",
+      model: "deepseek-chat",
+    });
+  }
+
+  return providers;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method Not Allowed" });
   }
 
-  const rawKey = (
-    process.env.OPENAI_API_KEY ||
-    process.env.GEMINI_API_KEY ||
-    process.env.GOOGLE_API_KEY ||
-    process.env.APP_AI_KEY ||
-    process.env.DEEPSEEK_API_KEY ||
-    process.env.VITE_GEMINI_API_KEY ||
-    process.env.VITE_OPENAI_API_KEY ||
-    ""
-  ).trim();
-
-  if (!rawKey || rawKey.startsWith("mock-")) {
+  const providers = buildProviderChain();
+  if (providers.length === 0) {
     recordServerlessAiTelemetry({
       isError: true,
       statusCode: 503,
@@ -80,97 +139,98 @@ export default async function handler(req, res) {
     return res.status(503).json({ error: "AI_KEY_NOT_CONFIGURED" });
   }
 
-  const isGemini =
-    Boolean(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY) ||
-    rawKey.startsWith("AIza");
-  const isDeepSeek = Boolean(process.env.DEEPSEEK_API_KEY);
-
-  const endpoint = isGemini
-    ? "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-    : isDeepSeek
-    ? "https://api.deepseek.com/v1/chat/completions"
-    : "https://api.openai.com/v1/chat/completions";
-
-  const model = isGemini
-    ? "gemini-2.5-flash"
-    : isDeepSeek
-    ? "deepseek-chat"
-    : "gpt-4o-mini";
-
-  const startTime = Date.now();
-
+  let body = {};
   try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
-    const messages = Array.isArray(body.messages) ? body.messages : [];
-    const promptVersion = String(body.promptVersion || "v2.0");
-    const intentType = String(body.intentType || "communication");
+    body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+  } catch {
+    body = {};
+  }
 
-    const upstream = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${rawKey}`,
-      },
-      body: JSON.stringify({
-        model,
-        messages,
-        temperature: 0.7,
-      }),
-    });
+  const messages = Array.isArray(body.messages) ? body.messages : [];
+  const promptVersion = String(body.promptVersion || "v2.0");
+  const intentType = String(body.intentType || "communication");
 
-    const latencyMs = Date.now() - startTime;
+  let lastStatus = 502;
+  let lastErrorText = "All configured AI providers failed";
 
-    if (!upstream.ok) {
-      const errText = await upstream.text();
-      recordServerlessAiTelemetry({
-        isError: true,
-        statusCode: upstream.status,
-        errorSummary: `Upstream ${model} HTTP ${upstream.status}`,
+  for (const candidate of providers) {
+    const startTime = Date.now();
+    try {
+      const upstream = await fetch(candidate.endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${candidate.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: candidate.model,
+          messages,
+          temperature: 0.7,
+        }),
       });
-      return res.status(upstream.status).json({ error: errText });
-    }
 
-    const data = await upstream.json();
-    const content = data?.choices?.[0]?.message?.content || "";
+      const latencyMs = Date.now() - startTime;
 
-    // Estimate tokens if provider doesn't return usage object
-    const promptTokens =
-      Number(data?.usage?.prompt_tokens) ||
-      Math.max(150, Math.round(JSON.stringify(messages).length / 3.5));
-    const completionTokens =
-      Number(data?.usage?.completion_tokens) ||
-      Math.max(60, Math.round(content.length / 2.5));
-    const totalTokens = promptTokens + completionTokens;
+      if (!upstream.ok) {
+        const errText = await upstream.text();
+        lastStatus = upstream.status;
+        lastErrorText = errText;
+        recordServerlessAiTelemetry({
+          isError: true,
+          statusCode: upstream.status,
+          errorSummary: `Upstream ${candidate.model} HTTP ${upstream.status} (failover)`,
+        });
+        continue;
+      }
 
-    // Privacy-by-Design: Only log non-identifying token & intent telemetry, NEVER message content
-    recordServerlessAiTelemetry({
-      isError: false,
-      model,
-      promptVersion,
-      intentType,
-      promptTokens,
-      completionTokens,
-      latencyMs,
-    });
+      const data = await upstream.json();
+      const content = data?.choices?.[0]?.message?.content || "";
+      if (!content.trim()) {
+        lastErrorText = `Empty response from ${candidate.model}`;
+        continue;
+      }
 
-    return res.status(200).json({
-      content,
-      model,
-      usage: {
-        promptTokens,
-        completionTokens,
-        totalTokens,
-        latencyMs,
+      const promptTokens =
+        Number(data?.usage?.prompt_tokens) ||
+        Math.max(150, Math.round(JSON.stringify(messages).length / 3.5));
+      const completionTokens =
+        Number(data?.usage?.completion_tokens) ||
+        Math.max(60, Math.round(content.length / 2.5));
+      const totalTokens = promptTokens + completionTokens;
+
+      recordServerlessAiTelemetry({
+        isError: false,
+        model: candidate.model,
         promptVersion,
         intentType,
-      },
-    });
-  } catch (err) {
-    recordServerlessAiTelemetry({
-      isError: true,
-      statusCode: 500,
-      errorSummary: String(err?.message || "Internal handler error"),
-    });
-    return res.status(500).json({ error: String(err?.message || err) });
+        promptTokens,
+        completionTokens,
+        latencyMs,
+      });
+
+      return res.status(200).json({
+        content,
+        model: candidate.model,
+        provider: candidate.provider,
+        usage: {
+          promptTokens,
+          completionTokens,
+          totalTokens,
+          latencyMs,
+          promptVersion,
+          intentType,
+        },
+      });
+    } catch (err) {
+      lastStatus = 500;
+      lastErrorText = String(err?.message || err);
+      recordServerlessAiTelemetry({
+        isError: true,
+        statusCode: 500,
+        errorSummary: `${candidate.model} error: ${lastErrorText}`,
+      });
+    }
   }
+
+  return res.status(lastStatus).json({ error: lastErrorText });
 }
