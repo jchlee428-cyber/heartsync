@@ -364,21 +364,21 @@ async def send_alimtalk_test(
             "title": "💌 [HeartSync] 오늘의 퇴근길 1가지 질문",
             "content": f"[HeartSync 데일리 루틴]\n\n오늘 퇴근길, {partner}님에게 건네면 좋은 1가지 질문이 도착했습니다.\n\n💬 \"오늘 하루 중 당신을 가장 미소 짓게 했던 순간은 언제였어?\"\n\n💡 존 가트맨 박사의 '사랑의 지도(Love Map)' 업데이트 팁: 작은 호기심이 관계의 친밀감을 3배 높여줍니다.",
             "button_name": "오늘의 질문 확인하기",
-            "button_url": "https://heartsync.co.kr/my",
+            "button_url": "https://www.heartsync.kr/my",
         },
         "d7": {
             "template_code": "HEARTSYNC_ROUTINE_D7",
             "title": "📈 [HeartSync] D+7 관계 변화 체크 타임",
             "content": f"[HeartSync 주간 리포트]\n\n지난주 관계 진단(종합 {score}점) 이후 7일이 흘렀습니다.\n\n이번 주 두 분의 갈등 지수와 소통 패턴에 어떤 변화가 있었을까요?\n\n⏱️ 3분 미니 체크인으로 관계의 긍정적 변화를 기록해보세요!",
-            "button_name": "3분 미니 진단 시작",
-            "button_url": "https://heartsync.co.kr/diagnosis?type=mini",
+            "button_name": "주간 점검 시작하기",
+            "button_url": "https://www.heartsync.kr/diagnosis",
         },
         "d30": {
             "template_code": "HEARTSYNC_ROUTINE_D30",
             "title": "👑 [HeartSync] 30일 기념 관계 성장 리포트",
-            "content": f"[HeartSync 월간 성장 리포트]\n\n첫 진단 후 어느덧 30일이 지났습니다! 🎉\n\n두 사람의 갈등 지수는 지난달 대비 얼마나 개선되었을까요?\n\n'30일 관계 개선 올케어 패스(49,000원)'로 전문 시계열 그래프와 AI 1:1 심층 코칭을 무제한으로 누려보세요.",
-            "button_name": "30일 올케어 패스 확인",
-            "button_url": "https://heartsync.co.kr/pricing",
+            "content": f"[HeartSync 월간 성장 리포트]\n\n첫 진단 후 어느덧 30일이 지났습니다! 🎉\n\n두 사람의 갈등 지수는 지난달 대비 얼마나 개선되었을까요?\n\n마이페이지에서 월간 관계 변화 결과를 확인해보세요.",
+            "button_name": "월간 리포트 확인하기",
+            "button_url": "https://www.heartsync.kr/my",
         },
     }
 
